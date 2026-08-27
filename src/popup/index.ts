@@ -48,17 +48,17 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     }
 
-    chrome.storage.local.get(["voice", "rate", "ignoredSites"], (result) => {
+    chrome.storage.local.get(["voice", "rate", "ignoredSites"], (result: Record<string, any>) => {
       if (result.voice) {
-        voiceSelect.value = result.voice;
+        voiceSelect.value = String(result.voice);
       }
-      if (result.rate) {
+      if (result.rate && Array.isArray(result.rate)) {
         const val = result.rate[0];
         rateSlider.value = val.toString();
         updateSpeedLabel(val);
       }
-      if (result.ignoredSites !== undefined) {
-        ignoredSites = result.ignoredSites;
+      if (result.ignoredSites && Array.isArray(result.ignoredSites)) {
+        ignoredSites = result.ignoredSites as string[];
       }
       
       if (currentDomain) {

@@ -53,12 +53,12 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
               }
             }
             if (queue.length > 0 && !sourceBuffer?.updating && !isStopped) {
-              sourceBuffer?.appendBuffer(queue.shift()!);
+              sourceBuffer?.appendBuffer(queue.shift()! as unknown as BufferSource);
             }
           });
           
           if (queue.length > 0 && !sourceBuffer.updating && !isStopped) {
-            sourceBuffer.appendBuffer(queue.shift()!);
+            sourceBuffer.appendBuffer(queue.shift()! as unknown as BufferSource);
           }
         } catch (err) {
           console.warn("SourceBuffer error:", err);
@@ -84,7 +84,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
       const chunkData = base64ToUint8Array(msg.data);
       if (sourceBuffer && !sourceBuffer.updating) {
         try {
-          sourceBuffer.appendBuffer(chunkData);
+          sourceBuffer.appendBuffer(chunkData as unknown as BufferSource);
         } catch (_) {
           queue.push(chunkData);
         }
@@ -100,7 +100,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
       }
       if (sourceBuffer && !sourceBuffer.updating && queue.length > 0) {
         try {
-          sourceBuffer.appendBuffer(queue.shift()!);
+          sourceBuffer.appendBuffer(queue.shift()! as unknown as BufferSource);
         } catch (_) {}
       }
       break;
