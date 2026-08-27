@@ -136,18 +136,21 @@ export async function handlePlayAction(e: any, forceTarget?: HTMLElement) {
           return;
         }
 
-        state.activePort = chrome.runtime.connect({ name: "tts-stream" });
-        state.activePort.postMessage({
-          type: "START",
-          text: fullTextToRead,
-          voice,
-          rateString
-        });
+        if (!state.activePort) {
+          state.activePort = chrome.runtime.connect({ name: "tts-stream" });
 
-        state.activePort.onMessage.addListener((msg) => {
-          if (!state.isLoading && !state.isPlaying) {
-            try { state.activePort?.disconnect(); } catch {}
+          state.activePort.onDisconnect.addListener(() => {
             state.activePort = null;
+            if (state.currentHighlightTick) {
+              clearInterval(state.currentHighlightTick);
+              state.currentHighlightTick = null;
+            }
+          });
+        }
+
+        state.activePort.onMessage.addListener(function onMsg(msg) {
+          if (state.activeTarget !== targetToPlay) {
+            state.activePort?.onMessage.removeListener(onMsg);
             return;
           }
 
@@ -161,6 +164,7 @@ export async function handlePlayAction(e: any, forceTarget?: HTMLElement) {
               playButton.style.background = "#ef4444"; 
             }
           } else if (msg.type === "PLAYBACK_ENDED") {
+            state.activePort?.onMessage.removeListener(onMsg);
             handlePlaybackEnded();
           } else if (msg.type === "WordBoundary") {
             if (msg.offset !== undefined) {
@@ -207,11 +211,11 @@ export async function handlePlayAction(e: any, forceTarget?: HTMLElement) {
           }
         });
 
-        state.activePort.onDisconnect.addListener(() => {
-          if (state.currentHighlightTick) {
-            clearInterval(state.currentHighlightTick);
-            state.currentHighlightTick = null;
-          }
+        state.activePort.postMessage({
+          type: "START",
+          text: fullTextToRead,
+          voice,
+          rateString
         });
 
         let nextPreloadEl = getNextValidElement(state.activeTarget!);

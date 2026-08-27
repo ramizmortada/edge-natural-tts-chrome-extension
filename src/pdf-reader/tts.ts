@@ -102,6 +102,26 @@ export function clearActiveHighlights() {
   }
 }
 
+function sendPreloads(currentIndex: number, voice: string, rateString: string) {
+  if (!state.activePort) return;
+  for (let i = 1; i <= 2; i++) {
+    const nextIdx = currentIndex + i;
+    if (nextIdx < state.allSentences.length) {
+      const nextSentence = state.allSentences[nextIdx];
+      if (nextSentence && nextSentence.text.trim()) {
+        try {
+          state.activePort.postMessage({
+            type: "PRELOAD",
+            text: nextSentence.text,
+            voice,
+            rateString
+          });
+        } catch (_) {}
+      }
+    }
+  }
+}
+
 export async function playSentenceAtIndex(idx: number) {
   if (idx < 0 || idx >= state.allSentences.length) {
     stopPlayback();
@@ -109,7 +129,11 @@ export async function playSentenceAtIndex(idx: number) {
   }
 
   const sentence = state.allSentences[idx];
-  stopPlayback();
+  
+  // Clear previous sentence highlights & tick without disconnecting activePort
+  clearActiveHighlights();
+  if (state.currentHighlightTick) clearInterval(state.currentHighlightTick);
+
   state.activeSentenceIndex = idx;
   state.isLoadingTTS = true;
   state.isPaused = false;
@@ -142,18 +166,27 @@ export async function playSentenceAtIndex(idx: number) {
   }
 
   try {
-    state.activePort = chrome.runtime.connect({ name: "tts-stream" });
-    state.activePort.postMessage({
-      type: "START",
-      text: sentence.text,
-      voice: state.currentVoice,
-      rateString
-    });
+    if (!state.activePort) {
+      state.activePort = chrome.runtime.connect({ name: "tts-stream" });
+
+      state.activePort.onDisconnect.addListener(() => {
+        state.activePort = null;
+        if (state.currentHighlightTick) {
+          clearInterval(state.currentHighlightTick);
+          state.currentHighlightTick = null;
+        }
+      });
+    }
 
     let lastCharOffset = 0;
     let isFirstChunk = true;
 
-    state.activePort.onMessage.addListener((msg) => {
+    state.activePort.onMessage.addListener(function onMsg(msg) {
+      if (state.activeSentenceIndex !== idx) {
+        state.activePort?.onMessage.removeListener(onMsg);
+        return;
+      }
+
       if (msg.type === "TIME_UPDATE") {
         state.currentAudioTime = msg.currentTime;
         if (isFirstChunk) {
@@ -164,6 +197,7 @@ export async function playSentenceAtIndex(idx: number) {
           }
         }
       } else if (msg.type === "PLAYBACK_ENDED") {
+        state.activePort?.onMessage.removeListener(onMsg);
         if (!state.isPaused && state.activeSentenceIndex === idx) {
           if (state.activeSentenceIndex + 1 < state.allSentences.length) {
             playSentenceAtIndex(state.activeSentenceIndex + 1);
@@ -205,6 +239,15 @@ export async function playSentenceAtIndex(idx: number) {
         stopPlayback();
       }
     });
+
+    state.activePort.postMessage({
+      type: "START",
+      text: sentence.text,
+      voice: state.currentVoice,
+      rateString
+    });
+
+    sendPreloads(idx, state.currentVoice, rateString);
 
     let lastHighlightedWord: any = null;
     if (state.currentHighlightTick) clearInterval(state.currentHighlightTick);
