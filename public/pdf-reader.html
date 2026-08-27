@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Edge Natural TTS - Document & Book Reader</title>
+  <link rel="stylesheet" href="pdf-reader.css">
+</head>
+<body class="dark-theme">
+  <!-- Top Navigation & Control Bar -->
+  <header id="reader-header">
+    <div class="header-left">
+      <div class="brand">
+        <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/>
+          <polyline points="14 2 14 8 20 8"/>
+          <path d="M10 13v-2a1 1 0 0 1 1-1h1a2 2 0 0 1 0 4h-2"/>
+          <path d="M9 17v-4"/>
+        </svg>
+        <span class="brand-name">Edge Natural TTS</span>
+      </div>
+
+      <div class="doc-info" id="doc-info" style="display: none;">
+        <button id="sidebar-toggle-btn" class="btn btn-secondary sidebar-toggle-btn" title="Toggle Pages Sidebar">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+          <span>Pages</span>
+        </button>
+        <span class="file-name" id="doc-title">Document</span>
+        <button id="export-doc-btn" class="btn btn-secondary" title="Export / Download Document Text">
+          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          <span>Export</span>
+        </button>
+      </div>
+
+      <label class="btn btn-secondary upload-btn">
+        <input type="file" id="file-input" accept=".pdf,.docx,.epub,.txt,.md,.markdown,.html,.htm,application/pdf" style="display: none;">
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+          <polyline points="17 8 12 3 7 8"/>
+          <line x1="12" y1="3" x2="12" y2="15"/>
+        </svg>
+        <span>Open File</span>
+      </label>
+    </div>
+
+    <!-- Center Document Navigation & Mode Switching -->
+    <div class="header-center" id="nav-controls" style="display: none;">
+      <!-- Universal Page Navigator (for both Reader & PDF) -->
+      <div class="pagination">
+        <button id="prev-page-btn" class="icon-btn" title="Previous Page">
+          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
+        </button>
+        <span class="page-indicator">
+          Page <input type="number" id="page-num-input" value="1" min="1" max="1"> of <span id="page-count">1</span>
+        </span>
+        <button id="next-page-btn" class="icon-btn" title="Next Page">
+          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+        </button>
+      </div>
+
+      <div class="divider"></div>
+
+      <!-- Mode Toggle: Reader vs Original PDF -->
+      <div class="mode-toggle">
+        <button id="mode-reader-btn" class="mode-btn active" title="Distraction-free Reader Mode">
+          <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
+          <span>Reader</span>
+        </button>
+        <button id="mode-pdf-btn" class="mode-btn" title="Original PDF Page View">
+          <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="21" x2="9" y2="9"/></svg>
+          <span>Original PDF</span>
+        </button>
+      </div>
+
+      <div class="divider"></div>
+
+      <!-- Reader Appearance Controls -->
+      <div class="reader-appearance-controls" id="reader-appearance-controls">
+        <button id="font-decrease-btn" class="icon-btn" title="Decrease font size">
+          <span style="font-size: 11px; font-weight: bold;">A-</span>
+        </button>
+        <button id="font-increase-btn" class="icon-btn" title="Increase font size">
+          <span style="font-size: 14px; font-weight: bold;">A+</span>
+        </button>
+        <select id="font-family-select" class="select-input font-select" title="Font Style">
+          <option value="sans">Sans-Serif</option>
+          <option value="serif">Serif (Book)</option>
+          <option value="mono">Monospace</option>
+        </select>
+        <select id="theme-select" class="select-input theme-select" title="Theme">
+          <option value="dark">🌙 Dark</option>
+          <option value="dark-sepia">☕ Dark Sepia</option>
+          <option value="sepia">📜 Light Sepia</option>
+          <option value="light">☀️ Light</option>
+        </select>
+      </div>
+
+      <!-- PDF Canvas Zoom Controls (visible in PDF mode) -->
+      <div class="pdf-canvas-controls" id="pdf-canvas-controls" style="display: none;">
+        <div class="zoom-controls">
+          <button id="zoom-out-btn" class="icon-btn" title="Zoom Out">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          </button>
+          <span id="zoom-level" class="zoom-text">100%</span>
+          <button id="zoom-in-btn" class="icon-btn" title="Zoom In">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          </button>
+          <button id="fit-width-btn" class="btn btn-ghost" title="Fit to Width">Fit</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Right Controls: Voice, Speed, TTS Actions -->
+    <div class="header-right">
+      <div class="tts-settings">
+        <select id="voice-select" class="select-input">
+          <option value="en-US-AriaNeural">Aria (Female)</option>
+          <option value="en-US-GuyNeural">Guy (Male)</option>
+          <option value="en-GB-SoniaNeural">Sonia (Female, UK)</option>
+          <option value="en-GB-RyanNeural">Ryan (Male, UK)</option>
+          <option value="en-AU-NatashaNeural">Natasha (Female, AU)</option>
+          <option value="en-AU-WilliamNeural">William (Male, AU)</option>
+        </select>
+
+        <div class="speed-control">
+          <span id="speed-label" class="speed-val">0%</span>
+          <input type="range" id="rate-slider" min="-50" max="100" value="0">
+        </div>
+      </div>
+
+      <div class="divider"></div>
+
+      <div class="tts-actions" id="tts-actions">
+        <button id="auto-scroll-btn" class="icon-btn active" title="Toggle Auto-Scroll while reading aloud">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v14"/><path d="m19 12-7 7-7-7"/><path d="M5 21h14"/></svg>
+        </button>
+        <button id="ai-settings-btn" class="icon-btn ai-settings-btn" title="Gemini AI Cleanup Settings & API Key">
+          <svg xmlns="http://www.w3.org/2000/svg" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/></svg>
+        </button>
+        <button id="tts-prev-btn" class="icon-btn" title="Previous Sentence">
+          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><polygon points="11 19 2 12 11 5 11 19"/><polygon points="22 19 13 12 22 5 22 19"/></svg>
+        </button>
+        <button id="tts-play-btn" class="primary-play-btn" title="Play/Pause">
+          <svg id="tts-play-icon" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+        </button>
+        <button id="tts-stop-btn" class="icon-btn stop-btn" title="Stop">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="6" width="12" height="12" rx="2" ry="2"/></svg>
+        </button>
+        <button id="tts-next-btn" class="icon-btn" title="Next Sentence">
+          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><polygon points="13 19 22 12 13 5 13 19"/><polygon points="2 19 11 12 2 5 2 19"/></svg>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Gemini AI Settings Modal -->
+  <div id="ai-modal" class="modal-backdrop" style="display: none;">
+    <div class="modal-card">
+      <div class="modal-header">
+        <div class="modal-title">
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/></svg>
+          <h3>Gemini AI Text Cleaner</h3>
+        </div>
+        <button id="ai-modal-close" class="icon-btn modal-close-btn" title="Close">&times;</button>
+      </div>
+      <div class="modal-body">
+        <p class="modal-desc">Cleans OCR and conversion artifacts, broken hyphenated words, and weird spacing page-by-page without changing the original text's meaning or words.</p>
+        
+        <div class="form-group">
+          <label for="gemini-api-key-input">Gemini API Key</label>
+          <div class="input-with-action">
+            <input type="password" id="gemini-api-key-input" placeholder="Enter your Google AI Studio API key (AIzaSy...)">
+            <button id="toggle-key-visibility" class="icon-btn visibility-btn" title="Show/Hide Key">👁️</button>
+          </div>
+          <small class="form-hint">Get a free key at <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener">Google AI Studio</a>. Saved securely in local storage.</small>
+        </div>
+
+        <div class="form-group">
+          <label for="gemini-model-input">Gemini Model</label>
+          <input type="text" id="gemini-model-input" value="gemini-3.1-flash-lite" placeholder="e.g. gemini-3.1-flash-lite">
+          <small class="form-hint">Model: <code>gemini-3.1-flash-lite</code></small>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button id="ai-modal-cancel" class="btn btn-ghost">Cancel</button>
+        <button id="ai-modal-save" class="btn btn-primary">Save Settings</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Reader App Body Layout with Sidebar -->
+  <div id="reader-layout" class="reader-layout">
+    <!-- Collapsible Pages & Chapters Sidebar -->
+    <aside id="reader-sidebar" class="reader-sidebar">
+      <div class="sidebar-header">
+        <div class="sidebar-title-row">
+          <div class="sidebar-title">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+            <span>Document Pages</span>
+          </div>
+          <button id="sidebar-close-btn" class="icon-btn" title="Close Sidebar">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          </button>
+        </div>
+        <div class="sidebar-search-box">
+          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          <input type="text" id="sidebar-search-input" placeholder="Search pages or text...">
+        </div>
+      </div>
+      <div id="sidebar-page-list" class="sidebar-page-list"></div>
+    </aside>
+
+    <!-- Main Content Viewport -->
+    <main id="reader-main">
+      <!-- Initial / Empty Drop Zone -->
+      <div id="drop-zone" class="drop-zone">
+        <div class="drop-zone-card">
+          <div class="drop-icon-container">
+            <svg xmlns="http://www.w3.org/2000/svg" width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/>
+              <polyline points="14 2 14 8 20 8"/>
+              <path d="M12 18v-6m-3 3l3-3 3 3"/>
+            </svg>
+          </div>
+          <h2>Drag & Drop your Document here</h2>
+          <p class="drop-subtitle">Supports PDF, Word (.docx), EPUB (.epub), Text (.txt), Markdown (.md), & HTML</p>
+          
+          <label class="btn btn-primary drop-browse-btn">
+            <input type="file" id="drop-file-input" accept=".pdf,.docx,.epub,.txt,.md,.markdown,.html,.htm,application/pdf" style="display: none;">
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+            Select Document File
+          </label>
+
+          <div class="features-list">
+            <div class="feature-item">
+              <span class="feature-bullet">📖</span>
+              <span>Reader Mode: Clean book typography, chapters & pages</span>
+            </div>
+            <div class="feature-item">
+              <span class="feature-bullet">📚</span>
+              <span>All formats: PDF, Word (.docx), EPUB (.epub), Markdown, TXT & HTML</span>
+            </div>
+            <div class="feature-item">
+              <span class="feature-bullet">✨</span>
+              <span>Edge Natural HD voices & synchronized word highlighting</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Drag Over Overlay -->
+      <div id="drag-overlay" class="drag-overlay" style="display: none;">
+        <div class="drag-overlay-content">
+          <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/>
+            <polyline points="14 2 14 8 20 8"/>
+            <line x1="12" y1="18" x2="12" y2="12"/>
+            <polyline points="9 15 12 12 15 15"/>
+          </svg>
+          <h3>Drop document to load</h3>
+        </div>
+      </div>
+
+      <!-- Loading Indicator -->
+      <div id="loading-indicator" class="loading-indicator" style="display: none;">
+        <div class="spinner"></div>
+        <p id="loading-text">Loading document...</p>
+      </div>
+
+      <!-- Mode 1: Distraction-Free Reader Mode View (Default) -->
+      <div id="reader-mode-view" class="reader-mode-view" style="display: none;">
+        <div class="reader-mode-container">
+          <div class="reader-book-header" id="reader-book-header">
+            <h1 id="reader-book-title">Document Title</h1>
+            <div class="reader-book-meta">
+              <span id="reader-page-info">287 pages</span>
+              <span class="meta-dot">&bull;</span>
+              <span id="reader-word-count">Reading aloud with Edge TTS</span>
+            </div>
+          </div>
+          <div id="reader-content" class="reader-content font-sans"></div>
+        </div>
+      </div>
+
+      <!-- Mode 2: Original PDF Canvas View -->
+      <div id="pdf-viewer" class="pdf-viewer" style="display: none;">
+        <div id="pages-container" class="pages-container"></div>
+      </div>
+    </main>
+  </div>
+
+  <script src="pdf-reader.js"></script>
+</body>
+</html>

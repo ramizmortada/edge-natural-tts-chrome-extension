@@ -56,16 +56,53 @@ document.head.appendChild(style);
 
 const VALID_TAGS = new Set(["P", "LI", "H1", "H2", "H3", "H4", "H5", "H6", "BLOCKQUOTE", "SPAN", "A", "TD", "TH", "ARTICLE", "DIV", "FIGCAPTION"]);
 
+const CHAT_SITE_CONFIGS = [
+  {
+    domain: "claude.ai",
+    messageSelector: "[data-message-author-role], .font-claude-message, .font-user-message, [data-testid='user-message'], .standard-markdown, .prose"
+  },
+  {
+    domain: "chatgpt.com",
+    messageSelector: "[data-message-author-role], article, .agent-turn, .user-turn, .markdown"
+  },
+  {
+    domain: "openai.com",
+    messageSelector: "[data-message-author-role], article, .agent-turn, .user-turn, .markdown"
+  },
+  {
+    domain: "deepseek.com",
+    messageSelector: ".ds-markdown, [data-testid='chat-message']"
+  }
+];
+
+function getActiveChatConfig() {
+  const hostname = window.location.hostname;
+  return CHAT_SITE_CONFIGS.find(cfg => hostname.includes(cfg.domain)) || null;
+}
+
+const AI_DISCLAIMER_REGEX = /(can make mistakes|double[- ]check responses|check important info|is an AI and may make mistakes)/i;
+
 function isValidTextElement(el: HTMLElement): boolean {
   if (!el || !el.tagName) return false;
   if (!VALID_TAGS.has(el.tagName)) return false;
+
+  const chatConfig = getActiveChatConfig();
+  if (chatConfig) {
+    if (!el.closest(chatConfig.messageSelector)) {
+      return false;
+    }
+  }
+
+  if (el.closest("fieldset, textarea, [contenteditable='true'], [data-testid*='input'], [data-testid*='disclaimer'], [data-testid*='footer']")) {
+    return false;
+  }
 
   const role = el.getAttribute("role");
   if (role && ["button", "menuitem", "tab", "dialog", "navigation", "search", "switch", "checkbox", "radio", "option"].includes(role)) return false;
 
   let depth = 0;
   let currentEl: HTMLElement | null = el;
-  const uiClasses = ["btn", "button", "dropdown", "menu", "nav", "tab", "pill", "badge", "tag", "filter", "pagination", "controls", "profile", "avatar", "author", "metadata"];
+  const uiClasses = ["btn", "button", "dropdown", "menu", "nav", "tab", "pill", "badge", "tag", "filter", "pagination", "controls", "profile", "avatar", "author", "metadata", "disclaimer"];
   while (currentEl && currentEl !== document.body && currentEl !== document.documentElement && depth < 4) {
     const classes = currentEl.classList;
     for (let i = 0; i < classes.length; i++) {
@@ -93,6 +130,10 @@ function isValidTextElement(el: HTMLElement): boolean {
   const text = el.innerText || el.textContent || "";
   const trimmed = text.trim();
   if (trimmed.length === 0) return false;
+
+  if (trimmed.length < 160 && AI_DISCLAIMER_REGEX.test(trimmed)) {
+    return false;
+  }
 
   const rect = el.getBoundingClientRect();
   if (rect.height > 600) return false;
@@ -147,7 +188,56 @@ function getClosestValidElement(el: HTMLElement | null): HTMLElement | null {
   return highestValid;
 }
 
+function getFirstValidElement(container: HTMLElement): HTMLElement | null {
+  const walker = document.createTreeWalker(container, NodeFilter.SHOW_ELEMENT, null);
+  let node: Node | null = walker.currentNode;
+  while ((node = walker.nextNode())) {
+    const el = node as HTMLElement;
+    if (isValidTextElement(el)) {
+      return el;
+    }
+  }
+  return null;
+}
+
 function getNextValidElement(current: HTMLElement): HTMLElement | null {
+  const chatConfig = getActiveChatConfig();
+  if (chatConfig) {
+    const currentMsg = current.closest(chatConfig.messageSelector) as HTMLElement | null;
+    if (currentMsg) {
+      let node: Node | null = current;
+      function getNextNodeWithin(n: Node, root: Node): Node | null {
+        if (n !== current && n.firstChild) return n.firstChild;
+        while (n && n !== root) {
+          if (n.nextSibling) return n.nextSibling;
+          n = n.parentNode as Node;
+        }
+        return null;
+      }
+
+      while ((node = getNextNodeWithin(node, currentMsg))) {
+        if (node.nodeType === Node.ELEMENT_NODE) {
+          const el = node as HTMLElement;
+          if (isValidTextElement(el)) {
+            return el;
+          }
+        }
+      }
+
+      const allMsgs = Array.from(document.querySelectorAll<HTMLElement>(chatConfig.messageSelector));
+      const currentIdx = allMsgs.indexOf(currentMsg);
+      if (currentIdx !== -1) {
+        for (let i = currentIdx + 1; i < allMsgs.length; i++) {
+          const nextMsg = allMsgs[i];
+          const firstValid = getFirstValidElement(nextMsg);
+          if (firstValid) return firstValid;
+        }
+      }
+
+      return null;
+    }
+  }
+
   let node: Node | null = current;
   function getNextNode(n: Node): Node | null {
     if (n !== current && n.firstChild) return n.firstChild;

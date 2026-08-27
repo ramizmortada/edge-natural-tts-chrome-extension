@@ -95,4 +95,12 @@ document.addEventListener('DOMContentLoaded', () => {
       updateButtonState();
     });
   });
+
+  const openPdfBtn = document.getElementById('open-pdf-btn') as HTMLButtonElement | null;
+  if (openPdfBtn) {
+    openPdfBtn.addEventListener('click', () => {
+      chrome.tabs.create({ url: chrome.runtime.getURL('pdf-reader.html') });
+    });
+  }
 });
+

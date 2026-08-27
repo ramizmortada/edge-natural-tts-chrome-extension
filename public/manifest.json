@@ -25,5 +25,23 @@
   "action": {
     "default_popup": "index.html",
     "default_title": "Open TTS"
-  }
+  },
+  "content_security_policy": {
+    "extension_pages": "script-src 'self' 'wasm-unsafe-eval'; object-src 'self'"
+  },
+  "web_accessible_resources": [
+    {
+      "resources": [
+        "pdf.worker.min.mjs",
+        "pdf-reader.html",
+        "pdf-reader.css",
+        "pdf-reader.js",
+        "wasm/*",
+        "cmaps/*",
+        "standard_fonts/*",
+        "iccs/*"
+      ],
+      "matches": ["<all_urls>"]
+    }
+  ]
 }
