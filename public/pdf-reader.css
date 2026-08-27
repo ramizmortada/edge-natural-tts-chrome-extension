@@ -564,11 +564,11 @@ body.theme-dark-sepia .speed-slider-header {
   display: inline-flex;
   align-items: center;
   height: 40px;
-  background: rgba(255, 255, 255, 0.06);
+  background: rgba(255, 255, 255, 0.07);
   border: 1px solid var(--border-color);
-  border-radius: 22px;
+  border-radius: 20px;
   padding: 0 4px;
-  gap: 3px;
+  gap: 4px;
 }
 
 .player-icon-btn {
@@ -583,6 +583,8 @@ body.theme-dark-sepia .speed-slider-header {
   justify-content: center;
   cursor: pointer;
   transition: all 0.15s ease;
+  outline: none;
+  padding: 0;
 }
 
 .player-icon-btn:hover {
@@ -590,12 +592,16 @@ body.theme-dark-sepia .speed-slider-header {
   background-color: rgba(255, 255, 255, 0.12);
 }
 
+.player-icon-btn:active {
+  transform: scale(0.95);
+}
+
 .player-play-btn {
   width: 34px;
   height: 34px;
   border-radius: 50%;
   background-color: var(--accent);
-  color: white;
+  color: #ffffff;
   border: none;
   display: inline-flex;
   align-items: center;
@@ -603,6 +609,8 @@ body.theme-dark-sepia .speed-slider-header {
   cursor: pointer;
   transition: all 0.15s ease;
   box-shadow: 0 2px 8px var(--accent-glow);
+  outline: none;
+  padding: 0;
 }
 
 .player-play-btn:hover {
@@ -610,12 +618,21 @@ body.theme-dark-sepia .speed-slider-header {
   background-color: var(--accent-hover);
 }
 
+.player-play-btn:active {
+  transform: scale(0.96);
+}
+
 body.theme-dark-sepia .player-play-btn {
   background-color: #d97706;
+  box-shadow: 0 2px 8px rgba(217, 119, 6, 0.35);
 }
 
 body.theme-dark-sepia .player-play-btn:hover {
   background-color: #b45309;
+}
+
+button svg, button path, button rect, button polygon {
+  pointer-events: none;
 }
 
 .icon-btn:hover {

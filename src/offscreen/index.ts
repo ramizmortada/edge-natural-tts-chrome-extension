@@ -1,3 +1,5 @@
+/// <reference types="chrome" />
+
 function base64ToUint8Array(base64: string): Uint8Array {
   const binaryString = atob(base64);
   const len = binaryString.length;

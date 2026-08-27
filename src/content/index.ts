@@ -1,3 +1,4 @@
+/// <reference types="chrome" />
 import { Communicate } from "edge-tts-universal/browser";
 
 let isPlaying = false;

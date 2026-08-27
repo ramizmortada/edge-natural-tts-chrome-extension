@@ -1,3 +1,5 @@
+/// <reference types="chrome" />
+
 let creatingOffscreen: Promise<void> | null = null;
 
 async function setupOffscreenDocument() {
@@ -17,7 +19,7 @@ async function setupOffscreenDocument() {
 
 let activeClientPort: chrome.runtime.Port | null = null;
 
-chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
+chrome.runtime.onMessage.addListener((msg: any, sender: chrome.runtime.MessageSender, sendResponse: (response?: any) => void) => {
   if (msg.type === "PLAYBACK_ENDED" || msg.type === "TIME_UPDATE") {
     if (activeClientPort) {
       try {
@@ -43,9 +45,11 @@ const preloadCache = new Map<string, PreloadedSession>();
 function cleanPreloadCache() {
   if (preloadCache.size > 10) {
     const firstKey = preloadCache.keys().next().value;
-    const session = preloadCache.get(firstKey);
-    if (session?.nativePort) session.nativePort.disconnect();
-    preloadCache.delete(firstKey);
+    if (firstKey) {
+      const session = preloadCache.get(firstKey);
+      if (session?.nativePort) session.nativePort.disconnect();
+      preloadCache.delete(firstKey);
+    }
   }
 }
 
@@ -78,7 +82,7 @@ function startNativeSession(text: string, voice: string, rateString: string): Pr
       }
     });
 
-    nativePort.onMessage.addListener((nativeMsg) => {
+    nativePort.onMessage.addListener((nativeMsg: any) => {
       if (nativeMsg.type === "audio") {
         session.audioChunks.push(nativeMsg.data);
         if (session.isActive) {
@@ -142,7 +146,7 @@ async function processPreloadQueue() {
   isPreloading = false;
 }
 
-chrome.runtime.onConnect.addListener((port) => {
+chrome.runtime.onConnect.addListener((port: chrome.runtime.Port) => {
   if (port.name !== "tts-stream") return;
 
   let isSessionPort = false;
@@ -163,7 +167,7 @@ chrome.runtime.onConnect.addListener((port) => {
     }
   });
 
-  port.onMessage.addListener(async (msg) => {
+  port.onMessage.addListener(async (msg: any) => {
     if (msg.type === "PRELOAD") {
       preloadQueue.push({ text: msg.text, voice: msg.voice, rateString: msg.rateString });
       processPreloadQueue();
