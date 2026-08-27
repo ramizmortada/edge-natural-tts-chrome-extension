@@ -13,6 +13,8 @@ let mediaSource: MediaSource | null = null;
 let sourceBuffer: SourceBuffer | null = null;
 let queue: Uint8Array[] = [];
 let isFirstAppend = true;
+let isPausedState = false;
+let isStopped = true;
 let timeUpdateInterval: any = null;
 
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
@@ -28,64 +30,83 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
       
       queue = [];
       isFirstAppend = true;
+      isPausedState = false;
+      isStopped = false;
       sourceBuffer = null;
       audioRef = new Audio();
       mediaSource = new MediaSource();
       audioRef.src = URL.createObjectURL(mediaSource);
       
       mediaSource.addEventListener("sourceopen", () => {
-        if (!mediaSource) return;
-        sourceBuffer = mediaSource.addSourceBuffer('audio/mpeg');
-        
-        sourceBuffer.addEventListener("updateend", () => {
-          if (isFirstAppend) {
-            isFirstAppend = false;
-            audioRef?.play().catch(e => console.error("Offscreen play failed:", e));
+        if (!mediaSource || isStopped) return;
+        try {
+          sourceBuffer = mediaSource.addSourceBuffer('audio/mpeg');
+          
+          sourceBuffer.addEventListener("updateend", () => {
+            if (isStopped) return;
+            if (isFirstAppend) {
+              isFirstAppend = false;
+              if (!isPausedState && !isStopped) {
+                audioRef?.play().catch(e => console.error("Offscreen play failed:", e));
+              }
+            }
+            if (queue.length > 0 && !sourceBuffer?.updating && !isStopped) {
+              sourceBuffer?.appendBuffer(queue.shift()!);
+            }
+          });
+          
+          if (queue.length > 0 && !sourceBuffer.updating && !isStopped) {
+            sourceBuffer.appendBuffer(queue.shift()!);
           }
-          if (queue.length > 0 && !sourceBuffer?.updating) {
-            sourceBuffer?.appendBuffer(queue.shift()!);
-          }
-        });
-        
-        if (queue.length > 0 && !sourceBuffer.updating) {
-          sourceBuffer.appendBuffer(queue.shift()!);
+        } catch (err) {
+          console.warn("SourceBuffer error:", err);
         }
       });
       
       audioRef.onended = () => {
-        chrome.runtime.sendMessage({ type: "PLAYBACK_ENDED" });
+        if (!isStopped) {
+          chrome.runtime.sendMessage({ type: "PLAYBACK_ENDED" }).catch(()=>{});
+        }
       };
       
       if (timeUpdateInterval) clearInterval(timeUpdateInterval);
       timeUpdateInterval = setInterval(() => {
-        if (audioRef && !audioRef.paused) {
-          chrome.runtime.sendMessage({ type: "TIME_UPDATE", currentTime: audioRef.currentTime });
+        if (audioRef && !audioRef.paused && !isStopped) {
+          chrome.runtime.sendMessage({ type: "TIME_UPDATE", currentTime: audioRef.currentTime }).catch(()=>{});
         }
       }, 50);
       break;
 
     case "APPEND_AUDIO":
+      if (isStopped) return;
       const chunkData = base64ToUint8Array(msg.data);
       if (sourceBuffer && !sourceBuffer.updating) {
-        sourceBuffer.appendBuffer(chunkData);
+        try {
+          sourceBuffer.appendBuffer(chunkData);
+        } catch (_) {
+          queue.push(chunkData);
+        }
       } else {
         queue.push(chunkData);
       }
       break;
 
     case "APPEND_AUDIO_ARRAY":
+      if (isStopped) return;
       for (const b64 of msg.data) {
         queue.push(base64ToUint8Array(b64));
       }
       if (sourceBuffer && !sourceBuffer.updating && queue.length > 0) {
-        sourceBuffer.appendBuffer(queue.shift()!);
+        try {
+          sourceBuffer.appendBuffer(queue.shift()!);
+        } catch (_) {}
       }
       break;
 
     case "END_STREAM":
-      if (!mediaSource) break;
+      if (!mediaSource || isStopped) break;
       function tryEnd() {
-        if (!mediaSource) return;
+        if (!mediaSource || isStopped) return;
         if (mediaSource.readyState === 'open') {
           if (sourceBuffer && sourceBuffer.updating) {
             sourceBuffer.addEventListener('updateend', tryEnd, { once: true });
@@ -93,7 +114,6 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
             if (sourceBuffer) {
               sourceBuffer.addEventListener('updateend', tryEnd, { once: true });
             } else {
-              // Wait for sourceBuffer to be created by the sourceopen listener
               setTimeout(tryEnd, 50);
             }
           } else {
@@ -107,10 +127,13 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
       break;
 
     case "PLAY":
+      isPausedState = false;
+      isStopped = false;
       audioRef?.play().catch(e => console.error(e));
       break;
 
     case "PAUSE":
+      isPausedState = true;
       audioRef?.pause();
       break;
 
@@ -121,6 +144,9 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
       break;
 
     case "STOP":
+      isStopped = true;
+      isPausedState = false;
+      queue = [];
       if (audioRef) {
         audioRef.pause();
         audioRef.removeAttribute("src");

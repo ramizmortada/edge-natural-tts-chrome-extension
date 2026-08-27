@@ -152,6 +152,13 @@ chrome.runtime.onConnect.addListener((port) => {
       activeClientPort = null;
     }
     if (isSessionPort) {
+      for (const s of preloadCache.values()) {
+        s.isActive = false;
+        if (s.nativePort) {
+          try { s.nativePort.disconnect(); } catch (_) {}
+          s.nativePort = null;
+        }
+      }
       chrome.runtime.sendMessage({ target: "offscreen", type: "STOP" }).catch(()=>{});
     }
   });
@@ -202,6 +209,13 @@ chrome.runtime.onConnect.addListener((port) => {
     } else if (msg.type === "PAUSE") {
       chrome.runtime.sendMessage({ target: "offscreen", type: "PAUSE" }).catch(()=>{});
     } else if (msg.type === "STOP") {
+      for (const s of preloadCache.values()) {
+        s.isActive = false;
+        if (s.nativePort) {
+          try { s.nativePort.disconnect(); } catch (_) {}
+          s.nativePort = null;
+        }
+      }
       chrome.runtime.sendMessage({ target: "offscreen", type: "STOP" }).catch(()=>{});
     } else if (msg.type === "SEEK") {
       chrome.runtime.sendMessage({ target: "offscreen", type: "SEEK", offset: msg.offset }).catch(()=>{});

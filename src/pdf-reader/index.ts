@@ -41,7 +41,7 @@ let pdfDoc: pdfjsLib.PDFDocumentProxy | null = null;
 let currentScale = 1.25;
 let currentFontSize = 18;
 let currentFontFamily = 'sans';
-let currentTheme = 'dark';
+let currentTheme = 'dark-sepia';
 let pagesData: PageData[] = [];
 let isPlaying = false;
 let isLoadingTTS = false;
@@ -81,12 +81,11 @@ const sidebarSearchInput = document.getElementById('sidebar-search-input') as HT
 const sidebarPageList = document.getElementById('sidebar-page-list') as HTMLElement;
 const modeReaderBtn = document.getElementById('mode-reader-btn') as HTMLButtonElement;
 const modePdfBtn = document.getElementById('mode-pdf-btn') as HTMLButtonElement;
-const readerAppearanceControls = document.getElementById('reader-appearance-controls') as HTMLElement;
 const pdfCanvasControls = document.getElementById('pdf-canvas-controls') as HTMLElement;
 const fontDecreaseBtn = document.getElementById('font-decrease-btn') as HTMLButtonElement;
 const fontIncreaseBtn = document.getElementById('font-increase-btn') as HTMLButtonElement;
+const fontSizePreview = document.getElementById('font-size-preview') as HTMLElement;
 const fontFamilySelect = document.getElementById('font-family-select') as HTMLSelectElement;
-const themeSelect = document.getElementById('theme-select') as HTMLSelectElement;
 const pageNumInput = document.getElementById('page-num-input') as HTMLInputElement;
 const pageCountSpan = document.getElementById('page-count') as HTMLElement;
 const prevPageBtn = document.getElementById('prev-page-btn') as HTMLButtonElement;
@@ -106,6 +105,16 @@ const ttsNextBtn = document.getElementById('tts-next-btn') as HTMLButtonElement;
 
 const autoScrollBtn = document.getElementById('auto-scroll-btn') as HTMLButtonElement;
 const exportDocBtn = document.getElementById('export-doc-btn') as HTMLButtonElement;
+const undoEditBtn = document.getElementById('undo-edit-btn') as HTMLButtonElement;
+const libraryMenuBtn = document.getElementById('library-menu-btn') as HTMLButtonElement;
+const libraryMenu = document.getElementById('library-menu') as HTMLElement;
+const appearanceMenuBtn = document.getElementById('appearance-menu-btn') as HTMLButtonElement;
+const appearanceMenu = document.getElementById('appearance-menu') as HTMLElement;
+const recentFilesList = document.getElementById('recent-files-list') as HTMLElement;
+const clearRecentsBtn = document.getElementById('clear-recents-btn') as HTMLButtonElement;
+const dropRecentSection = document.getElementById('drop-recent-section') as HTMLElement;
+const dropRecentList = document.getElementById('drop-recent-list') as HTMLElement;
+
 const aiSettingsBtn = document.getElementById('ai-settings-btn') as HTMLButtonElement;
 const aiModal = document.getElementById('ai-modal') as HTMLElement;
 const aiModalClose = document.getElementById('ai-modal-close') as HTMLButtonElement;
@@ -119,6 +128,272 @@ let geminiApiKey = '';
 let geminiModel = 'gemini-3.1-flash-lite';
 let isAutoScrollEnabled = true;
 let currentDocTitle = '';
+let currentUndoStack: Array<{ pageNum: number; previousParas: string[]; newParas: string[] }> = [];
+
+// ==========================================
+// IndexedDB Database for Full Document & State Memory
+// ==========================================
+interface StoredDoc {
+  id: string;
+  name: string;
+  type: string;
+  size: number;
+  arrayBuffer: ArrayBuffer;
+  lastOpened: number;
+  lastScrollTop: number;
+  lastPage: number;
+  lastSentenceIndex: number;
+  aiEdits: Record<number, { cleaned: string[]; original: string[] }>;
+}
+
+class ReaderDB {
+  private dbPromise: Promise<IDBDatabase>;
+
+  constructor() {
+    this.dbPromise = new Promise((resolve, reject) => {
+      const request = indexedDB.open('EdgeTTSReaderDB', 1);
+      request.onupgradeneeded = () => {
+        const db = request.result;
+        if (!db.objectStoreNames.contains('recent_docs')) {
+          db.createObjectStore('recent_docs', { keyPath: 'id' });
+        }
+      };
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
+    });
+  }
+
+  async saveDoc(doc: StoredDoc): Promise<void> {
+    const db = await this.dbPromise;
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction('recent_docs', 'readwrite');
+      tx.objectStore('recent_docs').put(doc);
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+    });
+  }
+
+  async getDoc(id: string): Promise<StoredDoc | undefined> {
+    const db = await this.dbPromise;
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction('recent_docs', 'readonly');
+      const req = tx.objectStore('recent_docs').get(id);
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = () => reject(req.error);
+    });
+  }
+
+  async getAllDocs(): Promise<StoredDoc[]> {
+    const db = await this.dbPromise;
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction('recent_docs', 'readonly');
+      const req = tx.objectStore('recent_docs').getAll();
+      req.onsuccess = () => {
+        const docs: StoredDoc[] = req.result || [];
+        docs.sort((a, b) => (b.lastOpened || 0) - (a.lastOpened || 0));
+        resolve(docs);
+      };
+      req.onerror = () => reject(req.error);
+    });
+  }
+
+  async deleteDoc(id: string): Promise<void> {
+    const db = await this.dbPromise;
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction('recent_docs', 'readwrite');
+      tx.objectStore('recent_docs').delete(id);
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+    });
+  }
+
+  async clearAll(): Promise<void> {
+    const db = await this.dbPromise;
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction('recent_docs', 'readwrite');
+      tx.objectStore('recent_docs').clear();
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+    });
+  }
+}
+
+const readerDB = new ReaderDB();
+
+function getFormatIcon(ext: string): string {
+  switch (ext.toLowerCase()) {
+    case 'pdf': return '📄';
+    case 'docx': return '📝';
+    case 'epub': return '📚';
+    case 'md': case 'markdown': return '📑';
+    case 'txt': return '📃';
+    case 'html': case 'htm': return '🌐';
+    default: return '📄';
+  }
+}
+
+// Render Recent Files Dropdown & Drop Zone Cards
+async function renderRecentFilesUI() {
+  try {
+    const docs = await readerDB.getAllDocs();
+
+    // Dropdown list
+    if (recentFilesList) {
+      if (docs.length === 0) {
+        recentFilesList.innerHTML = '<div class="empty-recent">No recent documents yet</div>';
+      } else {
+        recentFilesList.innerHTML = '';
+        for (const doc of docs) {
+          const item = document.createElement('div');
+          item.className = 'recent-file-item';
+          const icon = getFormatIcon(doc.type);
+          const timeAgo = formatTimeAgo(doc.lastOpened);
+
+          item.innerHTML = `
+            <div class="recent-file-left">
+              <span class="recent-file-icon">${icon}</span>
+              <div class="recent-file-details">
+                <span class="recent-file-name" title="${escapeHtml(doc.name)}">${escapeHtml(doc.name)}</span>
+                <span class="recent-file-meta">${doc.type.toUpperCase()} • Page ${doc.lastPage || 1} • ${timeAgo}</span>
+              </div>
+            </div>
+            <button class="recent-file-delete" title="Remove from recents">&times;</button>
+          `;
+
+          item.querySelector('.recent-file-left')?.addEventListener('click', () => {
+            recentFilesMenu.style.display = 'none';
+            loadStoredDocument(doc);
+          });
+
+          item.querySelector('.recent-file-delete')?.addEventListener('click', async (e) => {
+            e.stopPropagation();
+            await readerDB.deleteDoc(doc.id);
+            renderRecentFilesUI();
+          });
+
+          recentFilesList.appendChild(item);
+        }
+      }
+    }
+
+    // Drop Zone Recent Cards Grid
+    if (dropRecentSection && dropRecentList) {
+      if (docs.length === 0) {
+        dropRecentSection.style.display = 'none';
+      } else {
+        dropRecentSection.style.display = 'block';
+        dropRecentList.innerHTML = '';
+        for (const doc of docs.slice(0, 6)) {
+          const card = document.createElement('div');
+          card.className = 'drop-recent-card';
+          const icon = getFormatIcon(doc.type);
+          const timeAgo = formatTimeAgo(doc.lastOpened);
+
+          card.innerHTML = `
+            <div class="drc-top">
+              <span class="drc-icon">${icon}</span>
+              <span class="drc-badge">${doc.type}</span>
+            </div>
+            <div class="drc-name" title="${escapeHtml(doc.name)}">${escapeHtml(doc.name)}</div>
+            <div class="drc-meta">Page ${doc.lastPage || 1} • ${timeAgo}</div>
+          `;
+
+          card.addEventListener('click', () => {
+            loadStoredDocument(doc);
+          });
+
+          dropRecentList.appendChild(card);
+        }
+      }
+    }
+  } catch (e) {
+    console.warn('Error rendering recent files UI:', e);
+  }
+}
+
+function formatTimeAgo(timestamp: number): string {
+  if (!timestamp) return 'Recently';
+  const diff = Date.now() - timestamp;
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return 'Just now';
+  if (mins < 60) return `${mins}m ago`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  return `${days}d ago`;
+}
+
+// Popover Management
+function closeAllPopovers() {
+  if (libraryMenu) libraryMenu.style.display = 'none';
+  if (appearanceMenu) appearanceMenu.style.display = 'none';
+}
+
+if (libraryMenuBtn && libraryMenu) {
+  libraryMenuBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    const isVisible = libraryMenu.style.display === 'flex';
+    closeAllPopovers();
+    libraryMenu.style.display = isVisible ? 'none' : 'flex';
+  });
+}
+
+if (appearanceMenuBtn && appearanceMenu) {
+  appearanceMenuBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    const isVisible = appearanceMenu.style.display === 'flex';
+    closeAllPopovers();
+    appearanceMenu.style.display = isVisible ? 'none' : 'flex';
+  });
+}
+
+window.addEventListener('click', (e) => {
+  const target = e.target as Node;
+  if (libraryMenu && !libraryMenu.contains(target) && target !== libraryMenuBtn && !libraryMenuBtn?.contains(target)) {
+    libraryMenu.style.display = 'none';
+  }
+  if (appearanceMenu && !appearanceMenu.contains(target) && target !== appearanceMenuBtn && !appearanceMenuBtn?.contains(target)) {
+    appearanceMenu.style.display = 'none';
+  }
+});
+
+// Theme Option Buttons in Aa Popover
+document.querySelectorAll('.theme-option-btn').forEach(btn => {
+  btn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    const theme = (btn as HTMLElement).dataset.theme || 'dark';
+    currentTheme = theme;
+    updateReaderTypography();
+    chrome.storage.local.set({ pdfTheme: currentTheme });
+  });
+});
+
+if (clearRecentsBtn) {
+  clearRecentsBtn.addEventListener('click', async (e) => {
+    e.stopPropagation();
+    if (confirm('Clear all recent documents history?')) {
+      await readerDB.clearAll();
+      chrome.storage.local.remove(['last_active_doc_id']);
+      renderRecentFilesUI();
+    }
+  });
+}
+
+// Undo Button Handler
+if (undoEditBtn) {
+  undoEditBtn.addEventListener('click', (e) => {
+    closeAllPopovers();
+    if (currentUndoStack.length > 0) {
+      const action = currentUndoStack.pop();
+      if (action) {
+        revertPageText(action.pageNum);
+      }
+      if (currentUndoStack.length === 0) {
+        undoEditBtn.style.display = 'none';
+      }
+    }
+  });
+}
 
 // Auto-Scroll Toggle Handler
 if (autoScrollBtn) {
@@ -131,7 +406,10 @@ if (autoScrollBtn) {
 
 // Export Document Handler
 if (exportDocBtn) {
-  exportDocBtn.addEventListener('click', () => exportCleanedDocument());
+  exportDocBtn.addEventListener('click', () => {
+    closeAllPopovers();
+    exportCleanedDocument();
+  });
 }
 
 function exportCleanedDocument() {
@@ -296,7 +574,6 @@ function setViewMode(mode: 'reader' | 'pdf') {
     modeReaderBtn.classList.add('active');
     modePdfBtn.classList.remove('active');
     readerModeView.style.display = 'flex';
-    readerAppearanceControls.style.display = 'flex';
     pdfViewer.style.display = 'none';
     pdfCanvasControls.style.display = 'none';
   } else {
@@ -305,7 +582,6 @@ function setViewMode(mode: 'reader' | 'pdf') {
     pdfViewer.style.display = 'flex';
     pdfCanvasControls.style.display = 'flex';
     readerModeView.style.display = 'none';
-    readerAppearanceControls.style.display = 'none';
   }
 }
 
@@ -317,12 +593,22 @@ function updateReaderTypography() {
   readerContent.style.fontSize = `${currentFontSize}px`;
   readerContent.className = `reader-content font-${currentFontFamily}`;
   document.body.className = `theme-${currentTheme}`;
+  if (fontSizePreview) {
+    fontSizePreview.textContent = `${currentFontSize}px`;
+  }
+
+  // Update active state on theme buttons in popover
+  document.querySelectorAll('.theme-option-btn').forEach(btn => {
+    const btnTheme = (btn as HTMLElement).dataset.theme;
+    btn.classList.toggle('active', btnTheme === currentTheme);
+  });
 }
 
 fontDecreaseBtn.addEventListener('click', () => {
   if (currentFontSize > 14) {
     currentFontSize -= 2;
     updateReaderTypography();
+    chrome.storage.local.set({ pdfFontSize: currentFontSize });
   }
 });
 
@@ -330,39 +616,34 @@ fontIncreaseBtn.addEventListener('click', () => {
   if (currentFontSize < 32) {
     currentFontSize += 2;
     updateReaderTypography();
+    chrome.storage.local.set({ pdfFontSize: currentFontSize });
   }
 });
 
 fontFamilySelect.addEventListener('change', () => {
   currentFontFamily = fontFamilySelect.value;
   updateReaderTypography();
+  chrome.storage.local.set({ pdfFontFamily: currentFontFamily });
 });
 
-themeSelect.addEventListener('change', () => {
-  currentTheme = themeSelect.value;
-  updateReaderTypography();
-  chrome.storage.local.set({ pdfTheme: currentTheme });
-});
-
-// Load storage settings
-chrome.storage.local.get(["voice", "rate", "pdfTheme", "pdfFontFamily", "pdfFontSize", "geminiApiKey", "geminiModel", "isAutoScrollEnabled"], (result) => {
+// Load storage settings & Initialize state
+chrome.storage.local.get(["voice", "rate", "pdfTheme", "pdfFontFamily", "pdfFontSize", "geminiApiKey", "geminiModel", "isAutoScrollEnabled", "last_active_doc_id"], async (result) => {
   if (result.voice) {
     currentVoice = result.voice;
-    voiceSelect.value = result.voice;
+    if (voiceSelect) voiceSelect.value = result.voice;
   }
   if (result.rate) {
     currentRate = result.rate;
     const val = result.rate[0];
-    rateSlider.value = val.toString();
+    if (rateSlider) rateSlider.value = val.toString();
     updateSpeedLabel(val);
   }
   if (result.pdfTheme) {
     currentTheme = result.pdfTheme;
-    themeSelect.value = result.pdfTheme;
   }
   if (result.pdfFontFamily) {
     currentFontFamily = result.pdfFontFamily;
-    fontFamilySelect.value = result.pdfFontFamily;
+    if (fontFamilySelect) fontFamilySelect.value = result.pdfFontFamily;
   }
   if (result.pdfFontSize) {
     currentFontSize = result.pdfFontSize;
@@ -378,6 +659,28 @@ chrome.storage.local.get(["voice", "rate", "pdfTheme", "pdfFontFamily", "pdfFont
     if (autoScrollBtn) autoScrollBtn.classList.toggle('active', isAutoScrollEnabled);
   }
   updateReaderTypography();
+
+  // Render recent documents list on drop zone & header
+  await renderRecentFilesUI();
+
+  // Auto-reopen last active document if present
+  try {
+    let targetDocId = result.last_active_doc_id;
+    if (!targetDocId) {
+      const allDocs = await readerDB.getAllDocs();
+      if (allDocs.length > 0) {
+        targetDocId = allDocs[0].id;
+      }
+    }
+    if (targetDocId) {
+      const lastDoc = await readerDB.getDoc(targetDocId);
+      if (lastDoc && lastDoc.arrayBuffer && lastDoc.arrayBuffer.byteLength > 0) {
+        await loadStoredDocument(lastDoc);
+      }
+    }
+  } catch (err) {
+    console.error("Error auto-reopening last document:", err);
+  }
 });
 
 voiceSelect.addEventListener('change', () => {
@@ -413,32 +716,6 @@ function setupObserver() {
     rootMargin: '800px 0px 800px 0px'
   });
 }
-
-// Load storage settings
-chrome.storage.local.get(["voice", "rate"], (result) => {
-  if (result.voice) {
-    currentVoice = result.voice;
-    voiceSelect.value = result.voice;
-  }
-  if (result.rate) {
-    currentRate = result.rate;
-    const val = result.rate[0];
-    rateSlider.value = val.toString();
-    updateSpeedLabel(val);
-  }
-});
-
-voiceSelect.addEventListener('change', () => {
-  currentVoice = voiceSelect.value;
-  chrome.storage.local.set({ voice: currentVoice });
-});
-
-rateSlider.addEventListener('input', () => {
-  const val = parseInt(rateSlider.value, 10);
-  currentRate = [val];
-  updateSpeedLabel(val);
-  chrome.storage.local.set({ rate: [val] });
-});
 
 // Drag & Drop Management
 let dragCounter = 0;
@@ -489,33 +766,106 @@ dropFileInput.addEventListener('change', () => {
   }
 });
 
-// Master Document Loader (supports PDF, DOCX, EPUB, TXT, MD, HTML)
+let isRestoringState = false;
+
+// Master Document Loader (from User Upload)
 async function loadDocumentFile(file: File) {
   stopPlayback();
-  const name = file.name.toLowerCase();
-  const ext = name.split('.').pop() || '';
+  showLoading(`Loading ${file.name}...`);
+  const name = file.name;
+  const ext = name.split('.').pop()?.toLowerCase() || '';
 
   try {
-    if (ext === 'pdf' || file.type === 'application/pdf') {
-      await loadPDFFile(file);
-    } else if (ext === 'docx' || file.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') {
-      await loadDocxFile(file);
-    } else if (ext === 'epub' || file.type === 'application/epub+zip') {
-      await loadEpubFile(file);
-    } else if (ext === 'txt' || file.type === 'text/plain') {
-      await loadTextFile(file);
-    } else if (ext === 'md' || ext === 'markdown') {
-      await loadMarkdownFile(file);
-    } else if (ext === 'html' || ext === 'htm' || file.type === 'text/html') {
-      await loadHtmlFile(file);
-    } else {
-      // Default fallback: attempt text reading
-      await loadTextFile(file);
-    }
+    const arrayBuffer = await file.arrayBuffer();
+
+    const storedDoc: StoredDoc = {
+      id: file.name,
+      name: file.name,
+      type: ext,
+      size: file.size,
+      arrayBuffer: arrayBuffer.slice(0),
+      lastOpened: Date.now(),
+      lastScrollTop: 0,
+      lastPage: 1,
+      lastSentenceIndex: 0,
+      aiEdits: {}
+    };
+
+    await readerDB.saveDoc(storedDoc);
+    chrome.storage.local.set({ last_active_doc_id: file.name });
+    await renderRecentFilesUI();
+
+    await loadDocumentFromBuffer(file.name, ext, arrayBuffer.slice(0));
   } catch (err: any) {
     console.error(`Error loading document (${file.name}):`, err);
     hideLoading();
     alert(`Failed to load ${file.name}: ` + (err.message || err.toString()));
+  }
+}
+
+// Master Buffer-based Loader
+async function loadDocumentFromBuffer(name: string, ext: string, buffer: ArrayBuffer) {
+  stopPlayback();
+  const cleanExt = ext.toLowerCase().replace(/^\./, '');
+
+  if (cleanExt === 'pdf') {
+    await loadPDFFromBuffer(name, buffer);
+  } else if (cleanExt === 'docx') {
+    await loadDocxFromBuffer(name, buffer);
+  } else if (cleanExt === 'epub') {
+    await loadEpubFromBuffer(name, buffer);
+  } else if (cleanExt === 'txt') {
+    const text = new TextDecoder('utf-8').decode(buffer);
+    await loadTextFromBuffer(name, text);
+  } else if (cleanExt === 'md' || cleanExt === 'markdown') {
+    const text = new TextDecoder('utf-8').decode(buffer);
+    await loadMarkdownFromBuffer(name, text);
+  } else if (cleanExt === 'html' || cleanExt === 'htm') {
+    const text = new TextDecoder('utf-8').decode(buffer);
+    await loadHtmlFromBuffer(name, text);
+  } else {
+    const text = new TextDecoder('utf-8').decode(buffer);
+    await loadTextFromBuffer(name, text);
+  }
+}
+
+// Reopen a Stored Document from Memory
+async function loadStoredDocument(doc: StoredDoc) {
+  try {
+    isRestoringState = true;
+    showLoading(`Reopening ${doc.name}...`);
+    doc.lastOpened = Date.now();
+    await readerDB.saveDoc(doc);
+    chrome.storage.local.set({ last_active_doc_id: doc.id });
+    renderRecentFilesUI();
+
+    // Use sliced buffer copy so original buffer is never detached by PDF.js
+    const bufferCopy = doc.arrayBuffer.slice(0);
+    await loadDocumentFromBuffer(doc.name, doc.type, bufferCopy);
+
+    // Restore scroll position accurately
+    if (doc.lastScrollTop && doc.lastScrollTop > 0) {
+      setTimeout(() => {
+        readerModeView.scrollTop = doc.lastScrollTop;
+        if (doc.lastPage) {
+          pageNumInput.value = doc.lastPage.toString();
+          highlightActiveSidebarPage(doc.lastPage);
+        }
+        setTimeout(() => { isRestoringState = false; }, 300);
+      }, 100);
+    } else if (doc.lastPage && doc.lastPage > 1) {
+      setTimeout(() => {
+        jumpToPage(doc.lastPage);
+        setTimeout(() => { isRestoringState = false; }, 300);
+      }, 100);
+    } else {
+      setTimeout(() => { isRestoringState = false; }, 300);
+    }
+  } catch (err: any) {
+    isRestoringState = false;
+    console.error('Error reopening document:', err);
+    hideLoading();
+    alert(`Could not reopen ${doc.name}: ${err.message || err.toString()}`);
   }
 }
 
@@ -664,6 +1014,16 @@ ${rawText}`;
     // Save cleaned page edits persistently to storage
     saveCleanedPageToStorage(currentDocTitle, pNum, cleanedParas, originalParagraphs);
 
+    // Track for Undo button
+    currentUndoStack.push({
+      pageNum: pNum,
+      previousParas: originalParagraphs,
+      newParas: cleanedParas
+    });
+    if (undoEditBtn) {
+      undoEditBtn.style.display = 'inline-flex';
+    }
+
     // Re-index all sentences in global array
     rebuildAllReaderSentences();
 
@@ -721,6 +1081,12 @@ function revertPageText(pNum: number) {
 
   // Remove from storage
   removeCleanedPageFromStorage(currentDocTitle, pNum);
+
+  // Update undo stack
+  currentUndoStack = currentUndoStack.filter(item => item.pageNum !== pNum);
+  if (undoEditBtn && currentUndoStack.length === 0) {
+    undoEditBtn.style.display = 'none';
+  }
 
   rebuildAllReaderSentences();
 
@@ -894,9 +1260,8 @@ async function renderGenericDocumentToReader(title: string, sections: { pageNum:
 }
 
 // 1. Plain Text Loader (.txt)
-async function loadTextFile(file: File) {
-  showLoading(`Reading ${file.name}...`);
-  const text = await file.text();
+async function loadTextFromBuffer(fileName: string, text: string) {
+  showLoading(`Reading ${fileName}...`);
   const rawParas = text.split(/\r?\n\s*\r?\n+/).map(p => p.trim()).filter(p => p.length > 0);
 
   const sections: { pageNum: number; title: string; paragraphs: string[] }[] = [];
@@ -918,13 +1283,12 @@ async function loadTextFile(file: File) {
     sections.push({ pageNum: pageCounter++, title: `Section ${sections.length + 1}`, paragraphs: curParas });
   }
 
-  renderGenericDocumentToReader(file.name, sections.length > 0 ? sections : [{ pageNum: 1, title: file.name, paragraphs: [text || 'Empty file.'] }]);
+  await renderGenericDocumentToReader(fileName, sections.length > 0 ? sections : [{ pageNum: 1, title: fileName, paragraphs: [text || 'Empty file.'] }]);
 }
 
 // 2. Microsoft Word Document Loader (.docx)
-async function loadDocxFile(file: File) {
-  showLoading(`Converting Word document (${file.name})...`);
-  const arrayBuffer = await file.arrayBuffer();
+async function loadDocxFromBuffer(fileName: string, arrayBuffer: ArrayBuffer) {
+  showLoading(`Converting Word document (${fileName})...`);
   const result = await mammoth.convertToHtml({ arrayBuffer });
   const html = result.value;
 
@@ -965,13 +1329,12 @@ async function loadDocxFile(file: File) {
     sections.push({ pageNum: pageCounter++, title: curTitle, paragraphs: curParas });
   }
 
-  renderGenericDocumentToReader(file.name, sections.length > 0 ? sections : [{ pageNum: 1, title: file.name, paragraphs: ['No text found in Word document.'] }]);
+  await renderGenericDocumentToReader(fileName, sections.length > 0 ? sections : [{ pageNum: 1, title: fileName, paragraphs: ['No text found in Word document.'] }]);
 }
 
 // 3. Markdown Document Loader (.md, .markdown)
-async function loadMarkdownFile(file: File) {
-  showLoading(`Rendering Markdown (${file.name})...`);
-  const rawMd = await file.text();
+async function loadMarkdownFromBuffer(fileName: string, rawMd: string) {
+  showLoading(`Rendering Markdown (${fileName})...`);
   const lines = rawMd.split(/\r?\n/);
 
   const sections: { pageNum: number; title: string; paragraphs: string[] }[] = [];
@@ -1007,13 +1370,12 @@ async function loadMarkdownFile(file: File) {
     sections.push({ pageNum: pageCounter++, title: curTitle, paragraphs: curParas });
   }
 
-  renderGenericDocumentToReader(file.name, sections.length > 0 ? sections : [{ pageNum: 1, title: file.name, paragraphs: [rawMd || 'Empty markdown file.'] }]);
+  await renderGenericDocumentToReader(fileName, sections.length > 0 ? sections : [{ pageNum: 1, title: fileName, paragraphs: [rawMd || 'Empty markdown file.'] }]);
 }
 
 // 4. EPUB E-Book Loader (.epub)
-async function loadEpubFile(file: File) {
-  showLoading(`Unpacking EPUB book (${file.name})...`);
-  const arrayBuffer = await file.arrayBuffer();
+async function loadEpubFromBuffer(fileName: string, arrayBuffer: ArrayBuffer) {
+  showLoading(`Unpacking EPUB book (${fileName})...`);
   const zip = await JSZip.loadAsync(arrayBuffer);
 
   let opfPath = 'OEBPS/content.opf';
@@ -1092,17 +1454,16 @@ async function loadEpubFile(file: File) {
     }
   }
 
-  renderGenericDocumentToReader(file.name, sections.length > 0 ? sections : [{ pageNum: 1, title: file.name, paragraphs: ['No chapters found in EPUB.'] }]);
+  await renderGenericDocumentToReader(fileName, sections.length > 0 ? sections : [{ pageNum: 1, title: fileName, paragraphs: ['No chapters found in EPUB.'] }]);
 }
 
 // 5. HTML Document Loader (.html, .htm)
-async function loadHtmlFile(file: File) {
-  showLoading(`Parsing HTML (${file.name})...`);
-  const htmlText = await file.text();
+async function loadHtmlFromBuffer(fileName: string, htmlText: string) {
+  showLoading(`Parsing HTML (${fileName})...`);
   const parser = new DOMParser();
   const doc = parser.parseFromString(htmlText, 'text/html');
 
-  const title = doc.querySelector('title, h1')?.textContent?.trim() || file.name;
+  const title = doc.querySelector('title, h1')?.textContent?.trim() || fileName;
   const pEls = Array.from(doc.querySelectorAll('p, blockquote, li, h1, h2, h3'));
   const paragraphs = pEls.map(p => p.textContent?.trim() || '').filter(p => p.length > 0);
 
@@ -1125,17 +1486,17 @@ async function loadHtmlFile(file: File) {
     sections.push({ pageNum: pageCounter++, title: `Page ${sections.length + 1}`, paragraphs: curParas });
   }
 
-  renderGenericDocumentToReader(file.name, sections.length > 0 ? sections : [{ pageNum: 1, title, paragraphs: ['No readable text found in HTML.'] }]);
+  await renderGenericDocumentToReader(fileName, sections.length > 0 ? sections : [{ pageNum: 1, title, paragraphs: ['No readable text found in HTML.'] }]);
 }
 
-// Load PDF from File
-async function loadPDFFile(file: File) {
+// 6. Load PDF from Buffer
+async function loadPDFFromBuffer(fileName: string, rawBuffer: ArrayBuffer) {
   stopPlayback();
-  showLoading(`Loading ${file.name}...`);
-  currentDocTitle = file.name;
+  showLoading(`Loading ${fileName}...`);
+  currentDocTitle = fileName;
 
-  const cleanDocName = file.name.replace(/\.pdf$/i, '');
-  docTitle.textContent = file.name;
+  const cleanDocName = fileName.replace(/\.pdf$/i, '');
+  docTitle.textContent = fileName;
   readerBookTitle.textContent = cleanDocName;
   docInfo.style.display = 'flex';
   dropZone.style.display = 'none';
@@ -1145,7 +1506,6 @@ async function loadPDFFile(file: File) {
   setViewMode(currentViewMode);
 
   try {
-    const rawBuffer = await file.arrayBuffer();
     const uint8Data = new Uint8Array(rawBuffer);
 
     const loadingTask = pdfjsLib.getDocument({
@@ -1618,8 +1978,11 @@ pdfViewer.addEventListener('scroll', () => {
   }
 });
 
-// Track visible page on scroll in Reader mode
+// Track visible page and save scroll position in Reader mode
+let scrollSaveTimer: any = null;
 readerModeView.addEventListener('scroll', () => {
+  if (isRestoringState) return;
+
   const pageBlocks = Array.from(readerContent.querySelectorAll('.reader-page-block')) as HTMLElement[];
   if (pageBlocks.length === 0) return;
 
@@ -1639,6 +2002,20 @@ readerModeView.addEventListener('scroll', () => {
   if (parseInt(pageNumInput.value, 10) !== closestPage) {
     pageNumInput.value = closestPage.toString();
     highlightActiveSidebarPage(closestPage);
+  }
+
+  // Save current scroll position to memory database
+  if (currentDocTitle) {
+    clearTimeout(scrollSaveTimer);
+    scrollSaveTimer = setTimeout(async () => {
+      if (isRestoringState) return;
+      const doc = await readerDB.getDoc(currentDocTitle);
+      if (doc) {
+        doc.lastScrollTop = readerModeView.scrollTop;
+        doc.lastPage = closestPage;
+        await readerDB.saveDoc(doc);
+      }
+    }, 300);
   }
 });
 
@@ -1744,15 +2121,26 @@ hoverPlayButton.addEventListener('click', (e) => {
   }
 });
 
+let isPaused = false;
+
 // Main Toolbar Play Controls
 ttsPlayBtn.addEventListener('click', () => {
   if (isPlaying) {
     pausePlayback();
+  } else if (isPaused && activePort && activeSentenceIndex >= 0) {
+    // Resume paused playback
+    try {
+      activePort.postMessage({ type: "PLAY" });
+      isPaused = false;
+      setPlayState(true);
+    } catch (_) {
+      playSentenceAtIndex(activeSentenceIndex);
+    }
   } else {
     if (activeSentenceIndex >= 0 && activeSentenceIndex < allSentences.length) {
       playSentenceAtIndex(activeSentenceIndex);
     } else {
-      const curPage = parseInt(pageNumInput.value, 10);
+      const curPage = parseInt(pageNumInput.value, 10) || 1;
       let targetSentenceIdx = allSentences.findIndex(s => s.pageNumber >= curPage);
       if (targetSentenceIdx === -1 && allSentences.length > 0) {
         targetSentenceIdx = 0;
@@ -1760,7 +2148,7 @@ ttsPlayBtn.addEventListener('click', () => {
       if (targetSentenceIdx !== -1) {
         playSentenceAtIndex(targetSentenceIdx);
       } else {
-        alert('No readable text found. Please upload a valid document.');
+        alert('No readable text found. Please open a document from Library.');
       }
     }
   }
@@ -1795,21 +2183,30 @@ function setPlayState(playing: boolean) {
 
 function pausePlayback() {
   if (activePort) {
-    activePort.postMessage({ type: "PAUSE" });
+    try {
+      activePort.postMessage({ type: "PAUSE" });
+    } catch (_) {}
   }
+  chrome.runtime.sendMessage({ target: "offscreen", type: "PAUSE" }).catch(()=>{});
+  isPaused = true;
   setPlayState(false);
   if (currentHighlightTick) clearInterval(currentHighlightTick);
 }
 
 function stopPlayback() {
   if (activePort) {
-    activePort.postMessage({ type: "STOP" });
-    activePort.disconnect();
+    try {
+      activePort.postMessage({ type: "STOP" });
+      activePort.disconnect();
+    } catch (_) {}
     activePort = null;
   }
-  setPlayState(false);
+  chrome.runtime.sendMessage({ target: "offscreen", type: "STOP" }).catch(()=>{});
+  isPlaying = false;
+  isPaused = false;
   isLoadingTTS = false;
   activeSentenceIndex = -1;
+  setPlayState(false);
   clearActiveHighlights();
   clearSentenceHover();
   if (currentHighlightTick) clearInterval(currentHighlightTick);
@@ -1826,6 +2223,8 @@ async function playSentenceAtIndex(idx: number) {
   stopPlayback();
   activeSentenceIndex = idx;
   isLoadingTTS = true;
+  isPaused = false;
+  setPlayState(true);
   currentAudioTime = 0;
   activeWordBoundaries = [];
 
