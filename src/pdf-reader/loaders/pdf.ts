@@ -333,7 +333,10 @@ export async function buildReaderMode(doc: any) {
 
           sentenceSpan.addEventListener('click', (e) => {
             e.stopPropagation();
-            playSentenceAtIndex(sIndex);
+            const curIdx = state.allSentences.findIndex(s => s.readerElement === sentenceSpan || s.id === sentenceItem.id);
+            if (curIdx !== -1) {
+              playSentenceAtIndex(curIdx, true);
+            }
           });
 
           pEl.appendChild(sentenceSpan);

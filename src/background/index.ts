@@ -53,11 +53,15 @@ function cleanPreloadCache() {
   }
 }
 
-function startNativeSession(text: string, voice: string, rateString: string): PreloadedSession {
+function startNativeSession(text: string, voice: string, rateString: string, force = false): PreloadedSession {
   if (preloadCache.has(text)) {
     const cached = preloadCache.get(text)!;
-    if (cached.error) {
-      preloadCache.delete(text); // Retry if the preloaded session errored out
+    if (force || cached.error || (cached.isFinished && cached.audioChunks.length === 0)) {
+      if (cached.nativePort) {
+        try { cached.nativePort.disconnect(); } catch (_) {}
+        cached.nativePort = null;
+      }
+      preloadCache.delete(text); // Evict and retry if forced, errored, or empty
     } else {
       return cached;
     }
@@ -76,8 +80,9 @@ function startNativeSession(text: string, voice: string, rateString: string): Pr
     nativePort.onDisconnect.addListener(() => {
       if (!session.isFinished) {
          session.error = chrome.runtime.lastError ? chrome.runtime.lastError.message! : "Native host disconnected unexpectedly.";
+         preloadCache.delete(text);
          if (session.isActive && activeClientPort) {
-           activeClientPort.postMessage({ type: "error", error: session.error });
+           activeClientPort.postMessage({ type: "error", error: session.error, text });
          }
       }
     });
@@ -104,10 +109,11 @@ function startNativeSession(text: string, voice: string, rateString: string): Pr
         }
       } else if (nativeMsg.type === "error") {
         session.error = nativeMsg.error;
+        preloadCache.delete(text);
         session.nativePort?.disconnect();
         session.nativePort = null;
         if (session.isActive) {
-          if (activeClientPort) activeClientPort.postMessage({ type: "error", error: session.error });
+          if (activeClientPort) activeClientPort.postMessage({ type: "error", error: session.error, text });
           chrome.runtime.sendMessage({ target: "offscreen", type: "STOP" }).catch(()=>{});
         }
       }
@@ -116,6 +122,7 @@ function startNativeSession(text: string, voice: string, rateString: string): Pr
     nativePort.postMessage({ type: "START", text, voice, rateString });
   } catch (e: any) {
     session.error = e.message || e.toString();
+    preloadCache.delete(text);
   }
 
   return session;
@@ -129,13 +136,19 @@ async function processPreloadQueue() {
   isPreloading = true;
   while (preloadQueue.length > 0) {
     const item = preloadQueue.shift()!;
-    if (preloadCache.has(item.text)) continue;
+    if (preloadCache.has(item.text)) {
+      const existing = preloadCache.get(item.text)!;
+      if (!existing.error && (existing.isFinished || existing.nativePort)) {
+        continue;
+      }
+    }
 
     const session = startNativeSession(item.text, item.voice, item.rateString);
     if (!session.isFinished && !session.error) {
       await new Promise<void>((resolve) => {
+        const startTime = Date.now();
         const check = setInterval(() => {
-          if (session.isFinished || session.error) {
+          if (session.isFinished || session.error || (Date.now() - startTime > 15000)) {
             clearInterval(check);
             resolve();
           }
@@ -156,6 +169,7 @@ chrome.runtime.onConnect.addListener((port: chrome.runtime.Port) => {
       activeClientPort = null;
     }
     if (isSessionPort) {
+      preloadQueue.length = 0;
       for (const s of preloadCache.values()) {
         s.isActive = false;
         if (s.nativePort) {
@@ -171,9 +185,35 @@ chrome.runtime.onConnect.addListener((port: chrome.runtime.Port) => {
     if (msg.type === "PRELOAD") {
       preloadQueue.push({ text: msg.text, voice: msg.voice, rateString: msg.rateString });
       processPreloadQueue();
+    } else if (msg.type === "CLEAR_PRELOAD") {
+      if (Array.isArray(msg.texts)) {
+        for (let i = preloadQueue.length - 1; i >= 0; i--) {
+          if (msg.texts.includes(preloadQueue[i].text)) {
+            preloadQueue.splice(i, 1);
+          }
+        }
+        for (const t of msg.texts) {
+          const s = preloadCache.get(t);
+          if (s?.nativePort) {
+            try { s.nativePort.disconnect(); } catch (_) {}
+          }
+          preloadCache.delete(t);
+        }
+      } else {
+        preloadQueue.length = 0;
+        for (const s of preloadCache.values()) {
+          if (s?.nativePort) {
+            try { s.nativePort.disconnect(); } catch (_) {}
+          }
+        }
+        preloadCache.clear();
+      }
     } else if (msg.type === "START") {
       isSessionPort = true;
       activeClientPort = port;
+
+      // Drain old queued preloads so upcoming sentences are preloaded immediately
+      preloadQueue.length = 0;
 
       try {
         await setupOffscreenDocument();
@@ -184,11 +224,12 @@ chrome.runtime.onConnect.addListener((port: chrome.runtime.Port) => {
           s.isActive = false;
         }
 
-        const session = startNativeSession(msg.text, msg.voice, msg.rateString);
+        const session = startNativeSession(msg.text, msg.voice, msg.rateString, !!msg.force);
         session.isActive = true;
 
         if (session.error) {
-          port.postMessage({ type: "error", error: session.error });
+          preloadCache.delete(msg.text);
+          port.postMessage({ type: "error", error: session.error, text: msg.text });
           return;
         }
 
@@ -201,12 +242,18 @@ chrome.runtime.onConnect.addListener((port: chrome.runtime.Port) => {
         }
 
         if (session.isFinished) {
+          if (session.audioChunks.length === 0) {
+            preloadCache.delete(msg.text);
+            port.postMessage({ type: "error", error: "Empty audio generated. Please retry.", text: msg.text });
+            return;
+          }
           port.postMessage({ type: "end" });
           chrome.runtime.sendMessage({ target: "offscreen", type: "END_STREAM" }).catch(()=>{});
         }
 
       } catch (error: any) {
-        port.postMessage({ type: "error", error: error.message || error.toString() });
+        preloadCache.delete(msg.text);
+        port.postMessage({ type: "error", error: error.message || error.toString(), text: msg.text });
       }
     } else if (msg.type === "PLAY") {
       chrome.runtime.sendMessage({ target: "offscreen", type: "PLAY" }).catch(()=>{});

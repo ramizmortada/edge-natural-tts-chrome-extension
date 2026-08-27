@@ -2,7 +2,7 @@
 import { dom } from './dom';
 import { state } from './state';
 import { saveCleanedPageToStorage, removeCleanedPageFromStorage } from './db';
-import { playSentenceAtIndex, stopPlayback } from './tts';
+import { playSentenceAtIndex, stopPlayback, sendPreloads } from './tts';
 
 export async function cleanPageWithGemini(pageText: string): Promise<string> {
   if (!state.geminiApiKey) {
@@ -111,10 +111,31 @@ export function revertPageText(pageNum: number) {
 }
 
 export function updatePageBlockParagraphs(pageBlock: HTMLElement, pageNum: number, paras: string[]) {
+  const isCurrentSentenceOnThisPage = state.activeSentenceIndex >= 0 &&
+    state.allSentences[state.activeSentenceIndex]?.pageNumber === pageNum;
+
+  const currentActiveSentence = (state.activeSentenceIndex >= 0 && state.activeSentenceIndex < state.allSentences.length)
+    ? state.allSentences[state.activeSentenceIndex]
+    : null;
+
+  // Clear stale preloads for old text from background cache
+  const oldSentencesOfPage = state.allSentences.filter(s => s.pageNumber === pageNum);
+  if (state.activePort && oldSentencesOfPage.length > 0) {
+    try {
+      state.activePort.postMessage({
+        type: "CLEAR_PRELOAD",
+        texts: oldSentencesOfPage.map(s => s.text)
+      });
+    } catch (_) {}
+  }
+
   const oldParas = pageBlock.querySelectorAll('p.reader-paragraph');
   oldParas.forEach(p => p.remove());
 
-  stopPlayback();
+  // Only stop playback if the sentence CURRENTLY BEING READ is on the page that was modified
+  if (isCurrentSentenceOnThisPage) {
+    stopPlayback();
+  }
 
   state.allSentences = state.allSentences.filter(s => s.pageNumber !== pageNum);
 
@@ -147,8 +168,8 @@ export function updatePageBlockParagraphs(pageBlock: HTMLElement, pageNum: numbe
 
       sentenceSpan.addEventListener('click', (e) => {
         e.stopPropagation();
-        const curIdx = state.allSentences.indexOf(sObj);
-        if (curIdx !== -1) playSentenceAtIndex(curIdx);
+        const curIdx = state.allSentences.findIndex(s => s.readerElement === sentenceSpan || s.id === sObj.id);
+        if (curIdx !== -1) playSentenceAtIndex(curIdx, true);
       });
 
       pEl.appendChild(sentenceSpan);
@@ -160,8 +181,16 @@ export function updatePageBlockParagraphs(pageBlock: HTMLElement, pageNum: numbe
     }
   }
 
-  state.allSentences.push(...newSentences);
-  state.allSentences.sort((a, b) => a.pageNumber - b.pageNumber);
+  const beforeSentences = state.allSentences.filter(s => s.pageNumber < pageNum);
+  const afterSentences = state.allSentences.filter(s => s.pageNumber > pageNum);
+  state.allSentences = [...beforeSentences, ...newSentences, ...afterSentences];
+
+  // If audio is playing another page, restore the activeSentenceIndex and refresh preloads for the new cleaned text!
+  if (currentActiveSentence && !isCurrentSentenceOnThisPage) {
+    state.activeSentenceIndex = state.allSentences.indexOf(currentActiveSentence);
+    const rateString = state.currentRate[0] >= 0 ? `+${state.currentRate[0]}%` : `${state.currentRate[0]}%`;
+    sendPreloads(state.activeSentenceIndex, state.currentVoice, rateString);
+  }
 }
 
 export function openAiModal() {

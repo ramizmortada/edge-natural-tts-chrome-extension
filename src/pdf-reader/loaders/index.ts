@@ -240,14 +240,7 @@ export async function renderGenericDocumentToReader(title: string, sections: { p
         sentenceSpan.dataset.pageNumber = pNum.toString();
         sentenceSpan.textContent = sText + ' ';
 
-        sentenceSpan.addEventListener('click', (e) => {
-          e.stopPropagation();
-          playSentenceAtIndex(sIndex);
-        });
-
-        pEl.appendChild(sentenceSpan);
-
-        state.allSentences.push({
+        const sentenceItem: SentenceItem = {
           id: `s_${sIndex}`,
           pageNumber: pNum,
           text: sText,
@@ -255,7 +248,18 @@ export async function renderGenericDocumentToReader(title: string, sections: { p
           readerElement: sentenceSpan,
           startOffsetInEl: 0,
           endOffsetInEl: sText.length
+        };
+
+        sentenceSpan.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const curIdx = state.allSentences.findIndex(s => s.readerElement === sentenceSpan || s.id === sentenceItem.id);
+          if (curIdx !== -1) {
+            playSentenceAtIndex(curIdx, true);
+          }
         });
+
+        pEl.appendChild(sentenceSpan);
+        state.allSentences.push(sentenceItem);
 
         totalWordCount += sText.split(/\s+/).length;
       }

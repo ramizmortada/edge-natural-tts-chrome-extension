@@ -102,7 +102,7 @@ export function clearActiveHighlights() {
   }
 }
 
-function sendPreloads(currentIndex: number, voice: string, rateString: string) {
+export function sendPreloads(currentIndex: number, voice: string, rateString: string) {
   if (!state.activePort) return;
   for (let i = 1; i <= 2; i++) {
     const nextIdx = currentIndex + i;
@@ -122,7 +122,7 @@ function sendPreloads(currentIndex: number, voice: string, rateString: string) {
   }
 }
 
-export async function playSentenceAtIndex(idx: number) {
+export async function playSentenceAtIndex(idx: number, force = false, retryCount = 0) {
   if (idx < 0 || idx >= state.allSentences.length) {
     stopPlayback();
     return;
@@ -234,9 +234,17 @@ export async function playSentenceAtIndex(idx: number) {
           }
         }
       } else if (msg.type === "error") {
-        console.error("TTS Stream Error:", msg.error);
-        alert("Edge Natural TTS Error: " + msg.error);
-        stopPlayback();
+        state.activePort?.onMessage.removeListener(onMsg);
+        if (retryCount < 2) {
+          console.warn(`TTS generation interrupted for sentence ${idx}. Retrying (attempt ${retryCount + 1})...`);
+          setTimeout(() => {
+            playSentenceAtIndex(idx, true, retryCount + 1);
+          }, 300);
+        } else {
+          console.error("TTS Stream Error:", msg.error);
+          alert("Edge Natural TTS Error: " + msg.error);
+          stopPlayback();
+        }
       }
     });
 
@@ -244,7 +252,8 @@ export async function playSentenceAtIndex(idx: number) {
       type: "START",
       text: sentence.text,
       voice: state.currentVoice,
-      rateString
+      rateString,
+      force: !!force
     });
 
     sendPreloads(idx, state.currentVoice, rateString);

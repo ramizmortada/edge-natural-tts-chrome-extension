@@ -4,7 +4,7 @@ import { extractRawText, getNextValidElement, createRangeFromOffset } from './do
 import { clearHighlight } from './highlighter';
 import { playButton, PLAY_SVG, PAUSE_SVG, LOAD_SVG, startSession, stopSession, setPlaying, syncPosition, isExtensionValid } from './floating-ui';
 
-export async function handlePlayAction(e: any, forceTarget?: HTMLElement) {
+export async function handlePlayAction(e: any, forceTarget?: HTMLElement, force = false, retryCount = 0) {
   if (!isExtensionValid()) {
     alert("Edge Natural TTS: The extension was updated or reloaded. Please refresh the page to continue.");
     return;
@@ -205,9 +205,17 @@ export async function handlePlayAction(e: any, forceTarget?: HTMLElement) {
               }
             }
           } else if (msg.type === "error") {
-            console.error("Stream error from background:", msg.error);
-            alert("Edge Natural TTS Error: " + msg.error);
-            stopSession();
+            state.activePort?.onMessage.removeListener(onMsg);
+            if (retryCount < 2) {
+              console.warn(`TTS generation interrupted. Retrying (attempt ${retryCount + 1})...`);
+              setTimeout(() => {
+                handlePlayAction(null, targetToPlay, true, retryCount + 1);
+              }, 300);
+            } else {
+              console.error("Stream error from background:", msg.error);
+              alert("Edge Natural TTS Error: " + msg.error);
+              stopSession();
+            }
           }
         });
 
@@ -215,7 +223,8 @@ export async function handlePlayAction(e: any, forceTarget?: HTMLElement) {
           type: "START",
           text: fullTextToRead,
           voice,
-          rateString
+          rateString,
+          force: !!force
         });
 
         let nextPreloadEl = getNextValidElement(state.activeTarget!);
