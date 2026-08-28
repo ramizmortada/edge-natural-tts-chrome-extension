@@ -8,11 +8,11 @@ export const VALID_TAGS = new Set(["P", "LI", "H1", "H2", "H3", "H4", "H5", "H6"
 export const CHAT_SITE_CONFIGS: ChatSiteConfig[] = [
   {
     domain: "claude.ai",
-    messageSelector: "[data-message-author-role], .font-claude-message, .font-user-message, [data-testid='user-message'], .standard-markdown, .prose"
+    messageSelector: "[data-message-author-role], .font-claude-message, .font-user-message, [data-testid='user-message'], .standard-markdown, .prose, [class*='message'], [class*='turn-content'], .progressive-markdown"
   },
   {
     domain: "chatgpt.com",
-    messageSelector: "[data-message-author-role], article, .agent-turn, .user-turn, .markdown"
+    messageSelector: "[data-message-author-role], article, .agent-turn, .user-turn, .markdown, [data-testid*='conversation-turn']"
   },
   {
     domain: "openai.com",
@@ -20,7 +20,7 @@ export const CHAT_SITE_CONFIGS: ChatSiteConfig[] = [
   },
   {
     domain: "deepseek.com",
-    messageSelector: ".ds-markdown, [data-testid='chat-message']"
+    messageSelector: ".ds-markdown, [data-testid='chat-message'], [class*='message']"
   }
 ];
 
@@ -36,10 +36,10 @@ export function isValidTextElement(el: HTMLElement): boolean {
   if (!VALID_TAGS.has(el.tagName)) return false;
 
   const chatConfig = getActiveChatConfig();
-  if (chatConfig) {
-    if (!el.closest(chatConfig.messageSelector)) {
-      return false;
-    }
+  const isInsideChatMessage = chatConfig ? !!el.closest(chatConfig.messageSelector) : false;
+
+  if (chatConfig && !isInsideChatMessage) {
+    return false;
   }
 
   if (el.closest("fieldset, textarea, [contenteditable='true'], [data-testid*='input'], [data-testid*='disclaimer'], [data-testid*='footer']")) {
@@ -49,23 +49,27 @@ export function isValidTextElement(el: HTMLElement): boolean {
   const role = el.getAttribute("role");
   if (role && ["button", "menuitem", "tab", "dialog", "navigation", "search", "switch", "checkbox", "radio", "option"].includes(role)) return false;
 
-  let depth = 0;
-  let currentEl: HTMLElement | null = el;
-  const uiClasses = ["btn", "button", "dropdown", "menu", "nav", "tab", "pill", "badge", "tag", "filter", "pagination", "controls", "profile", "avatar", "author", "metadata", "disclaimer"];
-  while (currentEl && currentEl !== document.body && currentEl !== document.documentElement && depth < 4) {
-    const classes = currentEl.classList;
-    for (let i = 0; i < classes.length; i++) {
-      const cls = classes[i].toLowerCase();
-      if (uiClasses.some(ui => cls === ui || cls.includes(`-${ui}`) || cls.includes(`${ui}-`))) {
-        return false;
+  if (!isInsideChatMessage) {
+    if (el.closest("nav, footer, aside, menu, form, button, [role='navigation'], [role='menu'], [role='tablist'], [role='search'], [role='toolbar'], [role='menubar'], [role='dialog'], [role='button'], [role='tab']")) {
+      return false;
+    }
+
+    if (!["P", "H1", "H2", "H3", "H4", "H5", "H6", "BLOCKQUOTE", "LI", "ARTICLE"].includes(el.tagName)) {
+      let depth = 0;
+      let currentEl: HTMLElement | null = el;
+      const uiClasses = ["btn", "button", "dropdown", "menu", "nav", "tab", "pagination", "controls", "profile", "avatar"];
+      while (currentEl && currentEl !== document.body && currentEl !== document.documentElement && depth < 3) {
+        const classes = currentEl.classList;
+        for (let i = 0; i < classes.length; i++) {
+          const cls = classes[i].toLowerCase();
+          if (uiClasses.some(ui => cls === ui || cls.includes(`-${ui}`) || cls.includes(`${ui}-`))) {
+            return false;
+          }
+        }
+        currentEl = currentEl.parentElement;
+        depth++;
       }
     }
-    currentEl = currentEl.parentElement;
-    depth++;
-  }
-
-  if (el.closest("nav, footer, aside, menu, form, button, [role='navigation'], [role='menu'], [role='tablist'], [role='search'], [role='toolbar'], [role='menubar'], [role='dialog'], [role='button'], [role='tab']")) {
-    return false;
   }
   
   if (el.tagName === "DIV") {
@@ -85,7 +89,7 @@ export function isValidTextElement(el: HTMLElement): boolean {
   }
 
   const rect = el.getBoundingClientRect();
-  if (rect.height > 600) return false;
+  if (rect.height > 800) return false;
 
   const wordCount = trimmed.split(/\s+/).length;
   if (!["H1", "H2", "H3", "H4", "H5", "H6", "P", "LI", "BLOCKQUOTE", "TH", "TD"].includes(el.tagName)) {

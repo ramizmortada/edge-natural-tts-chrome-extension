@@ -161,16 +161,20 @@ export function syncPosition() {
   if (!state.currentTarget) return;
   
   let rect: DOMRect;
-  if (state.currentTextNode) {
-    const range = document.createRange();
-    range.selectNodeContents(state.currentTextNode);
-    rect = range.getBoundingClientRect();
+  if (state.currentTextNode && state.currentTextNode.isConnected) {
+    try {
+      const range = document.createRange();
+      range.selectNodeContents(state.currentTextNode);
+      rect = range.getBoundingClientRect();
+    } catch {
+      rect = state.currentTarget.getBoundingClientRect();
+    }
   } else {
     rect = state.currentTarget.getBoundingClientRect();
   }
 
   const top = rect.top + window.scrollY;
-  const left = rect.left + window.scrollX - 24;
+  const left = Math.max(4, rect.left + window.scrollX - 24);
   
   playButton.style.top = `${top}px`;
   playButton.style.left = `${left}px`;
