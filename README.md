@@ -1,6 +1,6 @@
-# Edge Natural TTS
+# ReadFlow
 
-A Chromium browser extension that reads webpages and documents aloud using Microsoft Edge's natural neural voices with synchronized, real-time word highlighting.
+A Chromium browser extension that reads webpages and documents aloud using natural neural voices with synchronized, real-time word highlighting.
 
 ---
 

@@ -1,7 +1,7 @@
 {
-  "name": "edge-natural-tts",
+  "name": "readflow",
   "version": "1.0.0",
-  "description": "Premium text-to-speech extension using Edge voices.",
+  "description": "Natural text-to-speech extension using neural voices with synchronized word highlighting.",
   "private": true,
   "scripts": {
     "dev": "next dev",

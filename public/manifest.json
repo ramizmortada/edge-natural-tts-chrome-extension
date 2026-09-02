@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "Edge Natural TTS",
+  "name": "ReadFlow - Natural Text-to-Speech",
   "version": "1.0.0",
-  "description": "Premium text-to-speech extension using Edge voices.",
+  "description": "Natural text-to-speech with synchronized word highlighting for webpages, PDFs, EPUBs, and documents.",
   "icons": {
     "16": "icons/icon-16.png",
     "32": "icons/icon-32.png",
@@ -30,7 +30,7 @@
   ],
   "action": {
     "default_popup": "index.html",
-    "default_title": "Edge Natural TTS",
+    "default_title": "ReadFlow",
     "default_icon": {
       "16": "icons/icon-16.png",
       "32": "icons/icon-32.png",
