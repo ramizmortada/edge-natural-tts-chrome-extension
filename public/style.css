@@ -9,13 +9,51 @@ body {
   box-sizing: border-box;
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 14px;
+}
+
+.popup-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.app-logo {
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  object-fit: cover;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+}
+
+.header-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.app-title {
+  font-size: 15px;
+  font-weight: 700;
+  margin: 0;
+  color: #f8fafc;
+  letter-spacing: -0.01em;
+}
+
+.app-tagline {
+  font-size: 11px;
+  color: #94a3b8;
+  font-weight: 400;
 }
 
 .description {
-  font-size: 14px;
-  color: #d4d4d8;
-  text-align: center;
+  font-size: 13px;
+  color: #94a3b8;
+  text-align: left;
+  line-height: 1.4;
+  margin: 0;
 }
 
 .field {

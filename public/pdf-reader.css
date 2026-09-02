@@ -82,6 +82,13 @@ body.theme-light #reader-header {
   cursor: default;
 }
 
+.brand-logo-img {
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
+  object-fit: cover;
+}
+
 .brand-name {
   font-size: 15px;
   font-weight: 700;

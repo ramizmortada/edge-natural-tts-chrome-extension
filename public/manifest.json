@@ -3,6 +3,12 @@
   "name": "Edge Natural TTS",
   "version": "1.0.0",
   "description": "Premium text-to-speech extension using Edge voices.",
+  "icons": {
+    "16": "icons/icon-16.png",
+    "32": "icons/icon-32.png",
+    "48": "icons/icon-48.png",
+    "128": "icons/icon-128.png"
+  },
   "permissions": [
     "storage",
     "nativeMessaging",
@@ -24,7 +30,13 @@
   ],
   "action": {
     "default_popup": "index.html",
-    "default_title": "Open TTS"
+    "default_title": "Edge Natural TTS",
+    "default_icon": {
+      "16": "icons/icon-16.png",
+      "32": "icons/icon-32.png",
+      "48": "icons/icon-48.png",
+      "128": "icons/icon-128.png"
+    }
   },
   "content_security_policy": {
     "extension_pages": "script-src 'self' 'wasm-unsafe-eval'; object-src 'self'"
@@ -32,6 +44,8 @@
   "web_accessible_resources": [
     {
       "resources": [
+        "logo.png",
+        "icons/*",
         "pdf.worker.min.mjs",
         "pdf-reader.html",
         "pdf-reader.css",
