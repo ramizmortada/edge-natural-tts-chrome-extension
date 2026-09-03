@@ -206,6 +206,18 @@ export async function handlePlayAction(e: any, forceTarget?: HTMLElement, force 
             }
           } else if (msg.type === "error") {
             state.activePort?.onMessage.removeListener(onMsg);
+            const errStr = (msg.error || "").toLowerCase();
+            const isHostError = errStr.includes("host not found") || 
+                                errStr.includes("specified native messaging") || 
+                                errStr.includes("native host disconnected");
+
+            if (isHostError) {
+              console.error("Native Voice Host Error:", msg.error);
+              alert("ReadFlow Setup Required:\n\nTo enable neural voices, please run install.bat in the 'native-host' folder of the ReadFlow directory.\n\nThen refresh this webpage to listen.");
+              stopSession();
+              return;
+            }
+
             if (retryCount < 2) {
               console.warn(`TTS generation interrupted. Retrying (attempt ${retryCount + 1})...`);
               setTimeout(() => {
@@ -213,7 +225,7 @@ export async function handlePlayAction(e: any, forceTarget?: HTMLElement, force 
               }, 300);
             } else {
               console.error("Stream error from background:", msg.error);
-              alert("Edge Natural TTS Error: " + msg.error);
+              alert("ReadFlow TTS Error: " + msg.error);
               stopSession();
             }
           }

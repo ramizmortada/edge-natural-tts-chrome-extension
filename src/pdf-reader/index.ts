@@ -3,7 +3,7 @@ import { dom, hoverPlayButton, PLAY_SVG, PAUSE_SVG } from './dom';
 import { state } from './state';
 import { readerDB, exportCleanedDocument } from './db';
 import { openAiModal, closeAiModal, revertPageText } from './ai';
-import { playSentenceAtIndex, pausePlayback, stopPlayback, createRangeForSentence, clearSentenceHover } from './tts';
+import { playSentenceAtIndex, pausePlayback, stopPlayback, createRangeForSentence, clearSentenceHover, closeHostSetupModal } from './tts';
 import {
   showLoading,
   hideLoading,
@@ -47,6 +47,14 @@ window.addEventListener('click', (e) => {
     dom.appearanceMenu.style.display = 'none';
   }
 });
+
+// Host Setup Modal Handlers
+if (dom.hostModalClose) {
+  dom.hostModalClose.addEventListener('click', () => closeHostSetupModal());
+}
+if (dom.hostModalDismiss) {
+  dom.hostModalDismiss.addEventListener('click', () => closeHostSetupModal());
+}
 
 // Theme Option Buttons
 document.querySelectorAll('.theme-option-btn').forEach(btn => {

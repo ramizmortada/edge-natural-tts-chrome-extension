@@ -1,5 +1,5 @@
 const fs = require('fs');
-const { execSync } = require('child_process');
+const esbuild = require('esbuild');
 
 console.log("Cleaning out directory...");
 fs.rmSync('out', { recursive: true, force: true });
@@ -10,27 +10,61 @@ console.log("Copying public files...");
 fs.cpSync('public', 'out', { recursive: true });
 
 console.log("Building popup script...");
-execSync('npx esbuild src/popup/index.ts --bundle --outfile=out/popup.js --format=iife --target=es2020', { stdio: 'inherit' });
+esbuild.buildSync({
+  entryPoints: ['src/popup/index.ts'],
+  bundle: true,
+  outfile: 'out/popup.js',
+  format: 'iife',
+  target: 'es2020'
+});
 console.log('Done in ' + (Date.now() - start) + 'ms');
 
 start = Date.now();
 console.log("Building content script...");
-execSync('npx esbuild src/content/index.ts --bundle --outfile=out/content.js --format=iife --target=es2020 --platform=browser');
+esbuild.buildSync({
+  entryPoints: ['src/content/index.ts'],
+  bundle: true,
+  outfile: 'out/content.js',
+  format: 'iife',
+  target: 'es2020',
+  platform: 'browser'
+});
 console.log('Done in ' + (Date.now() - start) + 'ms');
 
 start = Date.now();
 console.log('Building background script...');
-execSync('npx esbuild src/background/index.ts --bundle --outfile=out/background.js --format=esm --target=es2020 --platform=browser');
+esbuild.buildSync({
+  entryPoints: ['src/background/index.ts'],
+  bundle: true,
+  outfile: 'out/background.js',
+  format: 'esm',
+  target: 'es2020',
+  platform: 'browser'
+});
 console.log('Done in ' + (Date.now() - start) + 'ms');
 
 start = Date.now();
 console.log('Building offscreen script...');
-execSync('npx esbuild src/offscreen/index.ts --bundle --outfile=out/offscreen.js --format=iife --target=es2020 --platform=browser');
+esbuild.buildSync({
+  entryPoints: ['src/offscreen/index.ts'],
+  bundle: true,
+  outfile: 'out/offscreen.js',
+  format: 'iife',
+  target: 'es2020',
+  platform: 'browser'
+});
 console.log('Done in ' + (Date.now() - start) + 'ms');
 
 start = Date.now();
 console.log('Building PDF reader script...');
-execSync('npx esbuild src/pdf-reader/index.ts --bundle --outfile=out/pdf-reader.js --format=iife --target=es2020 --platform=browser');
+esbuild.buildSync({
+  entryPoints: ['src/pdf-reader/index.ts'],
+  bundle: true,
+  outfile: 'out/pdf-reader.js',
+  format: 'iife',
+  target: 'es2020',
+  platform: 'browser'
+});
 console.log('Done in ' + (Date.now() - start) + 'ms');
 
 console.log('Copying PDF.js worker and assets...');
@@ -52,6 +86,25 @@ if (fs.existsSync('node_modules/pdfjs-dist/standard_fonts')) {
 if (fs.existsSync('node_modules/pdfjs-dist/iccs')) {
   fs.cpSync('node_modules/pdfjs-dist/iccs', 'out/iccs', { recursive: true });
 }
+
+console.log('Building Native Host bundle...');
+start = Date.now();
+esbuild.buildSync({
+  entryPoints: ['native-host/tts-host.js'],
+  bundle: true,
+  platform: 'node',
+  target: 'node18',
+  outfile: 'native-host/tts-host.bundle.js'
+});
+console.log('Done in ' + (Date.now() - start) + 'ms');
+
+console.log('Packaging native-host directory into out/native-host...');
+fs.mkdirSync('out/native-host', { recursive: true });
+fs.copyFileSync('native-host/tts-host.bundle.js', 'out/native-host/tts-host.bundle.js');
+fs.copyFileSync('native-host/tts-host.bat', 'out/native-host/tts-host.bat');
+fs.copyFileSync('native-host/install.bat', 'out/native-host/install.bat');
+fs.copyFileSync('native-host/install.js', 'out/native-host/install.js');
+fs.copyFileSync('native-host/com.edgetts.host.json', 'out/native-host/com.edgetts.host.json');
 
 console.log("Build complete!");
 

@@ -4,6 +4,18 @@ import { state } from './state';
 import { SentenceItem } from './types';
 import { renderPage } from './loaders/pdf';
 
+export function openHostSetupModal() {
+  if (dom.hostSetupModal) {
+    dom.hostSetupModal.style.display = 'flex';
+  }
+}
+
+export function closeHostSetupModal() {
+  if (dom.hostSetupModal) {
+    dom.hostSetupModal.style.display = 'none';
+  }
+}
+
 export function setPlayState(playing: boolean) {
   state.isPlaying = playing;
   if (playing) {
@@ -235,6 +247,18 @@ export async function playSentenceAtIndex(idx: number, force = false, retryCount
         }
       } else if (msg.type === "error") {
         state.activePort?.onMessage.removeListener(onMsg);
+        const errStr = (msg.error || "").toLowerCase();
+        const isHostError = errStr.includes("host not found") || 
+                            errStr.includes("specified native messaging") || 
+                            errStr.includes("native host disconnected");
+
+        if (isHostError) {
+          console.error("Native Voice Host Error:", msg.error);
+          openHostSetupModal();
+          stopPlayback();
+          return;
+        }
+
         if (retryCount < 2) {
           console.warn(`TTS generation interrupted for sentence ${idx}. Retrying (attempt ${retryCount + 1})...`);
           setTimeout(() => {
@@ -242,7 +266,7 @@ export async function playSentenceAtIndex(idx: number, force = false, retryCount
           }, 300);
         } else {
           console.error("TTS Stream Error:", msg.error);
-          alert("Edge Natural TTS Error: " + msg.error);
+          alert("ReadFlow TTS Error: " + msg.error);
           stopPlayback();
         }
       }

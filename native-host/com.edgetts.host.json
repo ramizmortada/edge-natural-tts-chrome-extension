@@ -1,9 +1,9 @@
 {
-  "name": "com.edgetts.host",
-  "description": "Edge TTS Host",
-  "path": "d:\\projects\\tts\\native-host\\tts-host.bat",
-  "type": "stdio",
-  "allowed_origins": [
-    "chrome-extension://imifckmicpapkaaikmalipkpilpjoibn/"
-  ]
+    "path":  "D:\\projects\\tts\\native-host\\tts-host.bat",
+    "description":  "ReadFlow Edge TTS Host",
+    "name":  "com.edgetts.host",
+    "allowed_origins":  [
+                            "chrome-extension://doamgjjamfoodahblejajjaolbklnbfo/"
+                        ],
+    "type":  "stdio"
 }

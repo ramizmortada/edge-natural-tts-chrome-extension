@@ -42,25 +42,24 @@ A Chromium browser extension that reads webpages and documents aloud using natur
 
 ## Installation & Setup
 
-### 1. Install Dependencies & Build
-```bash
-npm install
-npm run build
-```
-This bundles the popup, content script, background service worker, offscreen audio handler, and document reader into the `out/` directory.
+### For Users (Download Release)
+1. Download **`readflow.zip`** from [Releases](https://github.com/ramizmortada/readflow/releases) and extract it to a folder.
+2. In the extracted folder, open the **`native-host`** folder and double-click **`install.bat`** (registers the audio host in 1 click).
+   *(Requires [Node.js](https://nodejs.org/))*
+3. Open your browser to `chrome://extensions/` (or `edge://extensions/`).
+4. Enable **Developer mode** (top-right toggle).
+5. Click **Load unpacked** and select the extracted ReadFlow folder.
 
-### 2. Load the Extension in Your Browser
-1. Open your browser and navigate to `chrome://extensions/` (or `edge://extensions/`).
-2. Enable **Developer mode** (toggle in the top-right corner).
-3. Click **Load unpacked**.
-4. Select the `out` directory inside the project folder.
-5. Note or copy the generated **Extension ID** (e.g. `abcdefghijklmnop...`).
+---
 
-### 3. Register the Native Messaging Host
-The extension relies on a lightweight local Node.js host to stream audio from Edge TTS:
-1. Double-click `native-host/install.bat` (or run `node native-host/install.js` in your terminal).
-2. Paste your **Extension ID** when prompted and press **Enter**.
-3. This creates the native messaging manifest and registers it under your Windows user registry key (`HKCU\Software\Google\Chrome\NativeMessagingHosts\com.edgetts.host`).
+### For Developers (Building from Source)
+1. Clone the repository and install dependencies:
+   ```bash
+   npm install
+   npm run build
+   ```
+2. Run `native-host/install.bat` to register the native messaging host.
+3. Open `chrome://extensions/`, click **Load unpacked**, and select the `out` folder.
 
 ---
 

@@ -1,2 +1,6 @@
 @echo off
-node "%~dp0tts-host.js"
+if exist "%~dp0tts-host.bundle.js" (
+  node "%~dp0tts-host.bundle.js"
+) else (
+  node "%~dp0tts-host.js"
+)

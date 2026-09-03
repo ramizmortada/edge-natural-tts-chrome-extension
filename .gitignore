@@ -19,6 +19,7 @@
 
 # production
 /build
+native-host/tts-host.bundle.js
 
 # misc
 .DS_Store

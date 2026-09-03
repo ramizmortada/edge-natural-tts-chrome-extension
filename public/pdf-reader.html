@@ -222,6 +222,36 @@
     </div>
   </div>
 
+  <!-- Host Setup Modal -->
+  <div id="host-setup-modal" class="modal-overlay" style="display: none;">
+    <div class="modal-card" style="max-width: 480px;">
+      <div class="modal-header">
+        <div class="modal-title">
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#eab308" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+          <h3>Voice Host Setup Required</h3>
+        </div>
+        <button id="host-modal-close" class="icon-btn modal-close-btn" title="Close">&times;</button>
+      </div>
+      <div class="modal-body">
+        <p class="modal-desc" style="margin-bottom: 14px;">
+          ReadFlow uses a lightweight local helper to stream natural neural voices with synchronized highlighting:
+        </p>
+        <div style="background: rgba(255,255,255,0.04); padding: 14px; border-radius: 8px; font-size: 13px; line-height: 1.6; border: 1px solid var(--border-color);">
+          <strong>1.</strong> Open your unzipped ReadFlow folder.<br>
+          <strong>2.</strong> Open the <code>native-host</code> folder.<br>
+          <strong>3.</strong> Double-click <strong><code>install.bat</code></strong>.<br>
+          <span style="color: var(--text-muted); font-size: 12px;">(Requires Node.js from <a href="https://nodejs.org" target="_blank" style="color: var(--accent-color); text-decoration: underline;">nodejs.org</a>)</span>
+        </div>
+        <p style="font-size: 12px; color: var(--text-muted); margin-top: 12px;">
+          After running <code>install.bat</code>, reload this page and click play!
+        </p>
+      </div>
+      <div class="modal-footer">
+        <button id="host-modal-dismiss" class="btn btn-primary">Got It</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Reader App Body Layout with Sidebar -->
   <div id="reader-layout" class="reader-layout">
     <!-- Collapsible Pages & Chapters Sidebar -->

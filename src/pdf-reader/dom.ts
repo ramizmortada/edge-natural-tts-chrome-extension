@@ -66,7 +66,10 @@ export const dom = {
   get aiModalSave() { return document.getElementById('ai-modal-save') as HTMLButtonElement; },
   get geminiApiKeyInput() { return document.getElementById('gemini-api-key-input') as HTMLInputElement; },
   get geminiModelInput() { return document.getElementById('gemini-model-input') as HTMLInputElement; },
-  get toggleKeyVisibility() { return document.getElementById('toggle-key-visibility') as HTMLButtonElement; }
+  get toggleKeyVisibility() { return document.getElementById('toggle-key-visibility') as HTMLButtonElement; },
+  get hostSetupModal() { return document.getElementById('host-setup-modal') as HTMLElement; },
+  get hostModalClose() { return document.getElementById('host-modal-close') as HTMLButtonElement; },
+  get hostModalDismiss() { return document.getElementById('host-modal-dismiss') as HTMLButtonElement; }
 };
 
 export const hoverPlayButton = document.createElement('button');
