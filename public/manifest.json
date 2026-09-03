@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "ReadFlow - Natural Text-to-Speech",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEApfLsT+p52BJVyHzXuHdmQ0nqQiED/EB5RFgoZ5kny+HsxBNeovIDwasugFDUNWNO32xlIFIO1HFnQPN2qKxTYL76AewSwDnISIXqIF26LyqRadPQ+c5IurJDbYzk+36pSPmr/HEHl8EfAnU1vn68Hg5JwgXloa/+ebdFkfpKJyOhWvQRLEtHk068Bqa0SKPiwUfvPIgtNI+gCvklOI9AFULGG9BgO5lPNL7wV/zyNN+Q0nafXYocY2Fk8JanJB0N+8jkMRWAyGX5C4B8hYvN/Z+71ZTv3ZBZe/bUGfScQw3RHKLl8Hpgo/9ssxxkxajRqc2LKNAClDXz2kxOFRxYXwIDAQAB",
   "description": "Natural text-to-speech with synchronized word highlighting for webpages, PDFs, EPUBs, and documents.",
   "icons": {
