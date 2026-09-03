@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "ReadFlow - Natural Text-to-Speech",
-  "version": "1.0.0",
+  "version": "1.0.2",
   "description": "Natural text-to-speech with synchronized word highlighting for webpages, PDFs, EPUBs, and documents.",
   "icons": {
     "16": "icons/icon-16.png",

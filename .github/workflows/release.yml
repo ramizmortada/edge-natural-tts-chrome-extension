@@ -4,6 +4,14 @@ on:
   push:
     tags:
       - 'v*' # Triggers when you push a tag like v1.0.0
+  release:
+    types: [published] # Triggers when a release is published in GitHub UI
+  workflow_dispatch: # Allows manual trigger from the GitHub Actions tab
+    inputs:
+      tag_name:
+        description: 'Release tag name (e.g. v1.0.2 - leave empty to use package.json version)'
+        required: false
+        type: string
 
 jobs:
   build:
@@ -22,7 +30,6 @@ jobs:
           cache: 'npm'
 
       - name: Install dependencies
-        # Uses npm install since you have a package-lock.json
         run: npm ci
 
       - name: Build extension
@@ -31,13 +38,28 @@ jobs:
       - name: Zip extension
         run: |
           cd out
-          zip -r ../edge-natural-tts.zip .
+          zip -r ../readflow.zip .
           cd ..
 
-      - name: Create Release
+      - name: Determine tag name
+        id: tag
+        run: |
+          if [ -n "${{ inputs.tag_name }}" ]; then
+            echo "name=${{ inputs.tag_name }}" >> $GITHUB_OUTPUT
+          elif [ "${{ github.ref_type }}" = "tag" ]; then
+            echo "name=${{ github.ref_name }}" >> $GITHUB_OUTPUT
+          elif [ "${{ github.event.release.tag_name }}" != "" ]; then
+            echo "name=${{ github.event.release.tag_name }}" >> $GITHUB_OUTPUT
+          else
+            VERSION=$(node -p "require('./package.json').version")
+            echo "name=v$VERSION" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Create or Update Release
         uses: softprops/action-gh-release@v2
         with:
-          files: edge-natural-tts.zip
+          tag_name: ${{ steps.tag.outputs.name }}
+          files: readflow.zip
           generate_release_notes: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
