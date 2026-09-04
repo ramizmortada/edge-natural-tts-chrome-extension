@@ -230,7 +230,7 @@ export function clearActiveHighlights() {
 
 export function sendPreloads(currentIndex: number, voice: string, rateString: string) {
   if (!state.activePort) return;
-  for (let i = 1; i <= 2; i++) {
+  for (let i = 1; i <= 4; i++) {
     const nextIdx = currentIndex + i;
     if (nextIdx < state.allSentences.length) {
       const nextSentence = state.allSentences[nextIdx];
@@ -361,8 +361,7 @@ export async function playSentenceAtIndex(idx: number, force = false, retryCount
         state.activePort?.onMessage.removeListener(onMsg);
         const errStr = (msg.error || "").toLowerCase();
         const isHostError = errStr.includes("host not found") || 
-                            errStr.includes("specified native messaging") || 
-                            errStr.includes("native host disconnected");
+                            errStr.includes("specified native messaging");
 
         if (isHostError) {
           console.error("Native Voice Host Error:", msg.error);

@@ -71,6 +71,9 @@ const VOICES: VoiceOption[] = [
   { id: 'en-GB-RyanNeural', name: 'Ryan', gender: 'Male', region: 'UK' },
   { id: 'en-AU-NatashaNeural', name: 'Natasha', gender: 'Female', region: 'AU' },
   { id: 'en-AU-WilliamNeural', name: 'William', gender: 'Male', region: 'AU' },
+  { id: 'kokoro:af_heart', name: 'Kokoro Heart', gender: 'Female', region: 'Local AI' },
+  { id: 'kokoro:am_adam', name: 'Kokoro Adam', gender: 'Male', region: 'Local AI' },
+  { id: 'kokoro:bf_emma', name: 'Kokoro Emma', gender: 'Female', region: 'Local AI' },
 ];
 
 interface FontOption {

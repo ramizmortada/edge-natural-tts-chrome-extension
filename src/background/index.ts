@@ -148,12 +148,13 @@ interface PreloadedSession {
   error: string | null;
   nativePort: chrome.runtime.Port | null;
   isActive: boolean;
+  isWav?: boolean;
 }
 
 const preloadCache = new Map<string, PreloadedSession>();
 
 function cleanPreloadCache() {
-  if (preloadCache.size > 10) {
+  if (preloadCache.size > 30) {
     const firstKey = preloadCache.keys().next().value;
     if (firstKey) {
       const session = preloadCache.get(firstKey);
@@ -179,7 +180,7 @@ function startNativeSession(text: string, voice: string, rateString: string, for
   cleanPreloadCache();
 
   const session: PreloadedSession = {
-    text, audioChunks: [], wordBoundaries: [], isFinished: false, error: null, nativePort: null, isActive: false
+    text, audioChunks: [], wordBoundaries: [], isFinished: false, error: null, nativePort: null, isActive: false, isWav: false
   };
   preloadCache.set(text, session);
 
@@ -203,6 +204,22 @@ function startNativeSession(text: string, voice: string, rateString: string, for
         if (session.isActive) {
           chrome.runtime.sendMessage({ target: "offscreen", type: "APPEND_AUDIO", data: nativeMsg.data }).catch(()=>{});
         }
+      } else if (nativeMsg.type === "audio_wav_start") {
+        session.isWav = true;
+        session.audioChunks = [];
+      } else if (nativeMsg.type === "audio_wav_chunk") {
+        session.isWav = true;
+        session.audioChunks.push(nativeMsg.data);
+      } else if (nativeMsg.type === "audio_wav_end") {
+        if (session.isActive) {
+          chrome.runtime.sendMessage({ target: "offscreen", type: "PLAY_AUDIO_WAV_CHUNKS", data: session.audioChunks }).catch(()=>{});
+        }
+      } else if (nativeMsg.type === "audio_wav") {
+        session.isWav = true;
+        session.audioChunks = [nativeMsg.data];
+        if (session.isActive) {
+          chrome.runtime.sendMessage({ target: "offscreen", type: "PLAY_AUDIO_WAV_CHUNKS", data: session.audioChunks }).catch(()=>{});
+        }
       } else if (nativeMsg.type === "WordBoundary") {
         const wb = { type: "WordBoundary", offset: nativeMsg.offset, duration: nativeMsg.duration, textObj: nativeMsg.textObj };
         session.wordBoundaries.push(wb);
@@ -215,7 +232,9 @@ function startNativeSession(text: string, voice: string, rateString: string, for
         session.nativePort = null;
         if (session.isActive) {
           if (activeClientPort) activeClientPort.postMessage({ type: "end" });
-          chrome.runtime.sendMessage({ target: "offscreen", type: "END_STREAM" }).catch(()=>{});
+          if (!session.isWav) {
+            chrome.runtime.sendMessage({ target: "offscreen", type: "END_STREAM" }).catch(()=>{});
+          }
         }
       } else if (nativeMsg.type === "error") {
         session.error = nativeMsg.error;
@@ -345,7 +364,11 @@ chrome.runtime.onConnect.addListener((port: chrome.runtime.Port) => {
 
         // Catch up offscreen with already downloaded chunks
         if (session.audioChunks.length > 0) {
-          chrome.runtime.sendMessage({ target: "offscreen", type: "APPEND_AUDIO_ARRAY", data: session.audioChunks }).catch(()=>{});
+          if (session.isWav) {
+            chrome.runtime.sendMessage({ target: "offscreen", type: "PLAY_AUDIO_WAV_CHUNKS", data: session.audioChunks }).catch(()=>{});
+          } else {
+            chrome.runtime.sendMessage({ target: "offscreen", type: "APPEND_AUDIO_ARRAY", data: session.audioChunks }).catch(()=>{});
+          }
         }
         if (session.wordBoundaries.length > 0) {
           port.postMessage({ type: "WordBoundaryArray", data: session.wordBoundaries });
@@ -358,7 +381,9 @@ chrome.runtime.onConnect.addListener((port: chrome.runtime.Port) => {
             return;
           }
           port.postMessage({ type: "end" });
-          chrome.runtime.sendMessage({ target: "offscreen", type: "END_STREAM" }).catch(()=>{});
+          if (!session.isWav) {
+            chrome.runtime.sendMessage({ target: "offscreen", type: "END_STREAM" }).catch(()=>{});
+          }
         }
 
       } catch (error: any) {

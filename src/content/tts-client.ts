@@ -200,8 +200,7 @@ export async function handlePlayAction(e: any, forceTarget?: HTMLElement, force 
             state.activePort?.onMessage.removeListener(onMsg);
             const errStr = (msg.error || "").toLowerCase();
             const isHostError = errStr.includes("host not found") || 
-                                errStr.includes("specified native messaging") || 
-                                errStr.includes("native host disconnected");
+                                errStr.includes("specified native messaging");
 
             if (isHostError) {
               console.error("Native Voice Host Error:", msg.error);
@@ -232,7 +231,7 @@ export async function handlePlayAction(e: any, forceTarget?: HTMLElement, force 
         });
 
         let nextPreloadEl = getNextValidElement(state.activeTarget!);
-        for (let i = 0; i < 2; i++) {
+        for (let i = 0; i < 4; i++) {
           if (nextPreloadEl) {
             const nextText = extractRawText(nextPreloadEl);
             if (nextText.trim()) {

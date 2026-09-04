@@ -105,6 +105,47 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
       }
       break;
 
+    case "PLAY_AUDIO_WAV_CHUNKS":
+    case "PLAY_AUDIO_WAV":
+      if (audioRef) {
+        audioRef.pause();
+        audioRef.removeAttribute("src");
+        audioRef.load();
+      }
+
+      queue = [];
+      isFirstAppend = false;
+      isPausedState = false;
+      isStopped = false;
+      sourceBuffer = null;
+      mediaSource = null;
+
+      audioRef = new Audio();
+      let byteChunks: Uint8Array[] = [];
+      if (Array.isArray(msg.data)) {
+        byteChunks = msg.data.map((b64: string) => base64ToUint8Array(b64));
+      } else if (msg.data) {
+        byteChunks = [base64ToUint8Array(msg.data)];
+      }
+      const wavBlob = new Blob(byteChunks as unknown as BlobPart[], { type: "audio/wav" });
+      audioRef.src = URL.createObjectURL(wavBlob);
+
+      audioRef.onended = () => {
+        if (!isStopped) {
+          chrome.runtime.sendMessage({ type: "PLAYBACK_ENDED" }).catch(()=>{});
+        }
+      };
+
+      if (timeUpdateInterval) clearInterval(timeUpdateInterval);
+      timeUpdateInterval = setInterval(() => {
+        if (audioRef && !audioRef.paused && !isStopped) {
+          chrome.runtime.sendMessage({ type: "TIME_UPDATE", currentTime: audioRef.currentTime }).catch(()=>{});
+        }
+      }, 50);
+
+      audioRef.play().catch(e => console.error("Offscreen WAV play failed:", e));
+      break;
+
     case "END_STREAM":
       if (!mediaSource || isStopped) break;
       function tryEnd() {

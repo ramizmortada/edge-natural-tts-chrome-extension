@@ -5,7 +5,18 @@ const tailwind = require('@tailwindcss/postcss');
 
 async function build() {
   console.log("Cleaning out directory...");
-  fs.rmSync('out', { recursive: true, force: true });
+  try {
+    fs.rmSync('out', { recursive: true, force: true });
+  } catch (e) {
+    if (fs.existsSync('out')) {
+      const files = fs.readdirSync('out');
+      for (const f of files) {
+        try {
+          fs.rmSync('out/' + f, { recursive: true, force: true });
+        } catch (_) {}
+      }
+    }
+  }
   fs.mkdirSync('out', { recursive: true });
 
   console.log("Generating extension icons from emerald logo.png...");
@@ -122,7 +133,8 @@ async function build() {
     bundle: true,
     platform: 'node',
     target: 'node18',
-    outfile: 'native-host/tts-host.bundle.js'
+    outfile: 'native-host/tts-host.bundle.js',
+    external: ['kokoro-js', '@huggingface/transformers', 'onnxruntime-node', 'phonemizer']
   });
   console.log('Done in ' + (Date.now() - start) + 'ms');
 
