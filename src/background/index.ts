@@ -121,12 +121,20 @@ chrome.runtime.onMessage.addListener((msg: any, sender: chrome.runtime.MessageSe
       }
     }
   } else if (msg.type === "CHECK_FOR_UPDATES") {
-    checkForUpdates(!!msg.force).then(sendResponse);
+    checkForUpdates(!!msg.force)
+      .then((res) => {
+        sendResponse(res || { hasUpdate: false });
+      })
+      .catch((err) => {
+        sendResponse({ hasUpdate: false, error: err?.message || String(err) });
+      });
     return true;
   } else if (msg.type === "DISMISS_UPDATE") {
     chrome.storage.local.set({ dismissedVersion: msg.version }).then(() => {
       chrome.action.setBadgeText({ text: "" });
       sendResponse({ success: true });
+    }).catch(() => {
+      sendResponse({ success: false });
     });
     return true;
   }

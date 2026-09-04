@@ -134,17 +134,78 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
+  async function fetchUpdateDirectly(): Promise<any> {
+    try {
+      const currentVersion = chrome.runtime.getManifest().version;
+      const res = await fetch('https://api.github.com/repos/ramizmortada/readflow/releases/latest', {
+        headers: {
+          'Accept': 'application/vnd.github.v3+json'
+        }
+      });
+
+      if (!res.ok) {
+        return null;
+      }
+
+      const data = await res.json();
+      const latestTag = data.tag_name || '';
+      const cleanRemote = latestTag.replace(/^v/, '').trim();
+      const cleanCurrent = currentVersion.replace(/^v/, '').trim();
+
+      const rParts = cleanRemote.split('.').map((n: string) => parseInt(n, 10) || 0);
+      const cParts = cleanCurrent.split('.').map((n: string) => parseInt(n, 10) || 0);
+
+      let hasUpdate = false;
+      for (let i = 0; i < Math.max(rParts.length, cParts.length); i++) {
+        const r = rParts[i] || 0;
+        const c = cParts[i] || 0;
+        if (r > c) { hasUpdate = true; break; }
+        if (r < c) { hasUpdate = false; break; }
+      }
+
+      const updateInfo = {
+        hasUpdate,
+        latestVersion: cleanRemote,
+        currentVersion,
+        releaseUrl: data.html_url || 'https://github.com/ramizmortada/readflow/releases/latest',
+        releaseNotes: data.body || '',
+        checkedAt: Date.now()
+      };
+
+      await chrome.storage.local.set({
+        lastUpdateCheck: Date.now(),
+        updateInfo
+      });
+
+      if (hasUpdate) {
+        chrome.action?.setBadgeText({ text: 'NEW' });
+        chrome.action?.setBadgeBackgroundColor({ color: '#2563eb' });
+      }
+
+      return updateInfo;
+    } catch (e) {
+      console.warn('ReadFlow: direct update check error:', e);
+      return null;
+    }
+  }
+
   // Load cached or trigger gentle update check
   chrome.storage.local.get(["updateInfo", "dismissedVersion"], (data) => {
     applyUpdateInfo(data.updateInfo, data.dismissedVersion);
-    // Background gentle check
-    chrome.runtime.sendMessage({ type: "CHECK_FOR_UPDATES", force: false }, (res) => {
-      if (chrome.runtime.lastError) return;
-      if (res) {
-        chrome.storage.local.get(["dismissedVersion"], (d) => {
-          applyUpdateInfo(res, d.dismissedVersion);
-        });
+    // Gentle check: try background worker first, fallback to direct fetch
+    chrome.runtime.sendMessage({ type: "CHECK_FOR_UPDATES", force: false }, async (res) => {
+      if (chrome.runtime.lastError || !res) {
+        const directRes = await fetchUpdateDirectly();
+        if (directRes) {
+          chrome.storage.local.get(["dismissedVersion"], (d) => {
+            applyUpdateInfo(directRes, d.dismissedVersion);
+          });
+        }
+        return;
       }
+      chrome.storage.local.get(["dismissedVersion"], (d) => {
+        applyUpdateInfo(res, d.dismissedVersion);
+      });
     });
   });
 
@@ -163,7 +224,10 @@ document.addEventListener('DOMContentLoaded', () => {
     dismissUpdateBtn.addEventListener('click', () => {
       if (updateBanner) updateBanner.style.display = 'none';
       if (activeLatestVersion) {
-        chrome.runtime.sendMessage({ type: "DISMISS_UPDATE", version: activeLatestVersion });
+        chrome.runtime.sendMessage({ type: "DISMISS_UPDATE", version: activeLatestVersion }, () => {
+          chrome.action?.setBadgeText({ text: '' });
+          chrome.storage.local.set({ dismissedVersion: activeLatestVersion });
+        });
       }
     });
   }
@@ -174,21 +238,32 @@ document.addEventListener('DOMContentLoaded', () => {
       checkUpdatesBtn.textContent = 'Checking...';
       checkUpdatesBtn.disabled = true;
 
-      chrome.runtime.sendMessage({ type: "CHECK_FOR_UPDATES", force: true }, (res) => {
+      function processResult(res: any) {
+        if (!checkUpdatesBtn) return;
         checkUpdatesBtn.disabled = false;
-        if (chrome.runtime.lastError || !res) {
+        if (!res) {
           checkUpdatesBtn.textContent = 'Failed to check';
-          setTimeout(() => { checkUpdatesBtn.textContent = originalText; }, 2500);
+          setTimeout(() => { if (checkUpdatesBtn) checkUpdatesBtn.textContent = originalText; }, 2500);
           return;
         }
 
         if (res.hasUpdate) {
           applyUpdateInfo(res, undefined); // show even if previously dismissed
           checkUpdatesBtn.textContent = 'Update available!';
-          setTimeout(() => { checkUpdatesBtn.textContent = originalText; }, 3000);
+          setTimeout(() => { if (checkUpdatesBtn) checkUpdatesBtn.textContent = originalText; }, 3000);
         } else {
           checkUpdatesBtn.textContent = 'Up to date ✓';
-          setTimeout(() => { checkUpdatesBtn.textContent = originalText; }, 2500);
+          setTimeout(() => { if (checkUpdatesBtn) checkUpdatesBtn.textContent = originalText; }, 2500);
+        }
+      }
+
+      chrome.runtime.sendMessage({ type: "CHECK_FOR_UPDATES", force: true }, async (res) => {
+        if (chrome.runtime.lastError || !res) {
+          // If background worker was asleep, not yet reloaded, or port closed, fallback directly
+          const directRes = await fetchUpdateDirectly();
+          processResult(directRes);
+        } else {
+          processResult(res);
         }
       });
     });
