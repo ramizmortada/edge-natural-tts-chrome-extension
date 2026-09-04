@@ -168,7 +168,7 @@ async function handleMessage(msg) {
   if (msg.type === "START") {
     const { text, voice, rateString } = msg;
 
-    if (!text || !text.trim()) {
+    if (!text || !text.trim() || !/\p{L}|\p{N}/u.test(text)) {
       sendMessage({ type: "end" });
       return;
     }

@@ -2,7 +2,46 @@
 import { state } from './state';
 import { extractRawText, getNextValidElement, createRangeFromOffset } from './dom-scanner';
 import { clearHighlight } from './highlighter';
-import { playButton, PLAY_SVG, PAUSE_SVG, LOAD_SVG, startSession, stopSession, setPlaying, syncPosition, isExtensionValid, setPlayButtonIdle, setPlayButtonPlaying, setPlayButtonLoading } from './floating-ui';
+import { playButton, PLAY_SVG, PAUSE_SVG, LOAD_SVG, startSession, stopSession, setPlaying, setLoading, syncPosition, isExtensionValid, setPlayButtonIdle, setPlayButtonPlaying, setPlayButtonLoading } from './floating-ui';
+
+let currentSessionRate = 0;
+
+export function applySpeedChangeDuringPlayback(newRate: number) {
+  if (state.activePort && state.activeTarget) {
+    const curMult = 1 + currentSessionRate / 100;
+    const newMult = 1 + newRate / 100;
+    const relativeRate = Math.max(0.25, Math.min(4.0, newMult / curMult));
+    state.activePort.postMessage({ type: "SET_PLAYBACK_RATE", rate: relativeRate });
+
+    // Clear background preload queue and cache so old rate is not used
+    state.activePort.postMessage({ type: "CLEAR_PRELOAD" });
+    const newRateString = newRate >= 0 ? `+${newRate}%` : `${newRate}%`;
+    chrome.storage.local.get(["voice"], (vRes) => {
+      const voice = (vRes.voice as string) || "en-US-AriaNeural";
+      let nextPreloadEl = getNextValidElement(state.activeTarget!);
+      for (let i = 0; i < 4; i++) {
+        if (nextPreloadEl) {
+          const nextText = extractRawText(nextPreloadEl);
+          if (nextText.trim()) {
+            state.activePort?.postMessage({ type: "PRELOAD", text: nextText, voice, rateString: newRateString });
+          }
+          nextPreloadEl = getNextValidElement(nextPreloadEl);
+        } else {
+          break;
+        }
+      }
+    });
+  }
+}
+
+let generationWatchdog: any = null;
+
+function resetWatchdog() {
+  if (generationWatchdog) {
+    clearTimeout(generationWatchdog);
+    generationWatchdog = null;
+  }
+}
 
 export async function handlePlayAction(e: any, forceTarget?: HTMLElement, force = false, retryCount = 0) {
   if (!isExtensionValid()) {
@@ -18,24 +57,21 @@ export async function handlePlayAction(e: any, forceTarget?: HTMLElement, force 
   const targetToPlay = forceTarget || state.currentTarget;
 
   if (state.isPlaying) {
-    if (targetToPlay === state.activeTarget) {
+    if (targetToPlay === state.activeTarget && !force) {
       if (state.activePort) state.activePort.postMessage({ type: "PAUSE" });
       setPlaying(false);
-      clearHighlight(false);
       setPlayButtonIdle();
       return;
     } else {
       if (state.activePort) {
         state.activePort.postMessage({ type: "STOP" });
-        state.activePort.disconnect();
-        state.activePort = null;
       }
       setPlaying(false);
       clearHighlight(true);
     }
   }
 
-  if (!state.isPlaying && targetToPlay === state.activeTarget && state.activeTarget !== null) {
+  if (!state.isPlaying && targetToPlay === state.activeTarget && state.activeTarget !== null && !force && !state.isLoading) {
     if (state.activePort) {
       state.activePort.postMessage({ type: "PLAY" });
     }
@@ -44,12 +80,29 @@ export async function handlePlayAction(e: any, forceTarget?: HTMLElement, force 
     return;
   }
 
-  if (state.isLoading || !targetToPlay) return;
+  if (state.isLoading) {
+    if (force) {
+      // Force retry permitted
+    } else if (targetToPlay && targetToPlay !== state.activeTarget) {
+      // User clicked a different sentence while previous was loading:
+      // Cancel previous request and switch immediately!
+      if (state.activePort) {
+        state.activePort.postMessage({ type: "STOP" });
+      }
+      resetWatchdog();
+      setLoading(false);
+      clearHighlight(true);
+    } else {
+      return;
+    }
+  }
+
+  if (!targetToPlay) return;
 
   const fullTextToRead = extractRawText(targetToPlay);
   if (!fullTextToRead || !fullTextToRead.trim()) return;
 
-  state.isLoading = true;
+  setLoading(true);
   state.activeTarget = targetToPlay;
   startSession();
   setPlayButtonLoading();
@@ -57,11 +110,21 @@ export async function handlePlayAction(e: any, forceTarget?: HTMLElement, force 
 
   state.currentAudioTime = 0;
 
+  resetWatchdog();
+  generationWatchdog = setTimeout(() => {
+    if (state.isLoading && state.activeTarget === targetToPlay) {
+      console.warn("ReadFlow: TTS generation timed out.");
+      resetWatchdog();
+      stopSession();
+    }
+  }, 15000);
+
   try {
     chrome.storage.local.get(["voice", "rate"], async (result: Record<string, any>) => {
       try {
         const voice = (result.voice as string) || "en-US-AriaNeural";
         const rateArray = (result.rate as number[]) || [0];
+        currentSessionRate = rateArray[0];
         const rateString = rateArray[0] >= 0 ? `+${rateArray[0]}%` : `${rateArray[0]}%`;
 
         let isFirstChunk = true;
@@ -70,7 +133,8 @@ export async function handlePlayAction(e: any, forceTarget?: HTMLElement, force 
         let lastCharOffset = 0;
 
         const handlePlaybackEnded = () => {
-          state.isLoading = false;
+          resetWatchdog();
+          setLoading(false);
           setPlaying(false);
           clearHighlight();
           setPlayButtonIdle();
@@ -134,9 +198,13 @@ export async function handlePlayAction(e: any, forceTarget?: HTMLElement, force 
 
           state.activePort.onDisconnect.addListener(() => {
             state.activePort = null;
+            resetWatchdog();
             if (state.currentHighlightTick) {
               clearInterval(state.currentHighlightTick);
               state.currentHighlightTick = null;
+            }
+            if (state.isLoading || state.isPlaying) {
+              stopSession();
             }
           });
         }
@@ -151,11 +219,13 @@ export async function handlePlayAction(e: any, forceTarget?: HTMLElement, force 
             state.currentAudioTime = msg.currentTime;
             if (isFirstChunk) {
               isFirstChunk = false;
-              state.isLoading = false;
+              resetWatchdog();
+              setLoading(false);
               setPlaying(true);
               setPlayButtonPlaying(); 
             }
           } else if (msg.type === "PLAYBACK_ENDED") {
+            resetWatchdog();
             state.activePort?.onMessage.removeListener(onMsg);
             handlePlaybackEnded();
           } else if (msg.type === "WordBoundary") {
@@ -196,7 +266,8 @@ export async function handlePlayAction(e: any, forceTarget?: HTMLElement, force 
                 }
               }
             }
-          } else if (msg.type === "error") {
+          } else if (msg.type === "error" || msg.type === "PLAYBACK_ERROR") {
+            resetWatchdog();
             state.activePort?.onMessage.removeListener(onMsg);
             const errStr = (msg.error || "").toLowerCase();
             const isHostError = errStr.includes("host not found") || 

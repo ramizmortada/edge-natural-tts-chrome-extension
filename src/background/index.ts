@@ -113,7 +113,7 @@ chrome.runtime.onStartup.addListener(() => {
 });
 
 chrome.runtime.onMessage.addListener((msg: any, sender: chrome.runtime.MessageSender, sendResponse: (response?: any) => void) => {
-  if (msg.type === "PLAYBACK_ENDED" || msg.type === "TIME_UPDATE") {
+  if (msg.type === "PLAYBACK_ENDED" || msg.type === "TIME_UPDATE" || msg.type === "PLAYBACK_ERROR") {
     if (activeClientPort) {
       try {
         activeClientPort.postMessage(msg);
@@ -153,26 +153,35 @@ interface PreloadedSession {
 
 const preloadCache = new Map<string, PreloadedSession>();
 
+function getCacheKey(voice: string, rateString: string, text: string): string {
+  return `${voice}::${rateString}::${text.trim()}`;
+}
+
 function cleanPreloadCache() {
-  if (preloadCache.size > 30) {
+  if (preloadCache.size > 100) {
     const firstKey = preloadCache.keys().next().value;
     if (firstKey) {
       const session = preloadCache.get(firstKey);
-      if (session?.nativePort) session.nativePort.disconnect();
+      if (session?.nativePort) {
+        try { session.nativePort.disconnect(); } catch (_) {}
+      }
       preloadCache.delete(firstKey);
     }
   }
 }
 
 function startNativeSession(text: string, voice: string, rateString: string, force = false): PreloadedSession {
-  if (preloadCache.has(text)) {
-    const cached = preloadCache.get(text)!;
-    if (force || cached.error || (cached.isFinished && cached.audioChunks.length === 0)) {
+  const cacheKey = getCacheKey(voice, rateString, text);
+  if (preloadCache.has(cacheKey)) {
+    const cached = preloadCache.get(cacheKey)!;
+    const isZombie = !cached.nativePort && !cached.isFinished;
+    const isEmpty = cached.isFinished && cached.audioChunks.length === 0;
+    if (force || cached.error || isZombie || isEmpty) {
       if (cached.nativePort) {
         try { cached.nativePort.disconnect(); } catch (_) {}
         cached.nativePort = null;
       }
-      preloadCache.delete(text); // Evict and retry if forced, errored, or empty
+      preloadCache.delete(cacheKey); // Evict and retry if forced, errored, zombie, or empty
     } else {
       return cached;
     }
@@ -182,7 +191,7 @@ function startNativeSession(text: string, voice: string, rateString: string, for
   const session: PreloadedSession = {
     text, audioChunks: [], wordBoundaries: [], isFinished: false, error: null, nativePort: null, isActive: false, isWav: false
   };
-  preloadCache.set(text, session);
+  preloadCache.set(cacheKey, session);
 
   try {
     const nativePort = chrome.runtime.connectNative("com.edgetts.host");
@@ -191,7 +200,7 @@ function startNativeSession(text: string, voice: string, rateString: string, for
     nativePort.onDisconnect.addListener(() => {
       if (!session.isFinished) {
          session.error = chrome.runtime.lastError ? chrome.runtime.lastError.message! : "Native host disconnected unexpectedly.";
-         preloadCache.delete(text);
+         preloadCache.delete(cacheKey);
          if (session.isActive && activeClientPort) {
            activeClientPort.postMessage({ type: "error", error: session.error, text });
          }
@@ -230,15 +239,23 @@ function startNativeSession(text: string, voice: string, rateString: string, for
         session.isFinished = true;
         session.nativePort?.disconnect();
         session.nativePort = null;
+        if (session.audioChunks.length === 0) {
+          session.error = "Empty audio generated";
+          preloadCache.delete(cacheKey);
+        }
         if (session.isActive) {
-          if (activeClientPort) activeClientPort.postMessage({ type: "end" });
-          if (!session.isWav) {
-            chrome.runtime.sendMessage({ target: "offscreen", type: "END_STREAM" }).catch(()=>{});
+          if (session.audioChunks.length === 0) {
+            if (activeClientPort) activeClientPort.postMessage({ type: "error", error: "Empty audio generated.", text });
+          } else {
+            if (activeClientPort) activeClientPort.postMessage({ type: "end" });
+            if (!session.isWav) {
+              chrome.runtime.sendMessage({ target: "offscreen", type: "END_STREAM" }).catch(()=>{});
+            }
           }
         }
       } else if (nativeMsg.type === "error") {
         session.error = nativeMsg.error;
-        preloadCache.delete(text);
+        preloadCache.delete(cacheKey);
         session.nativePort?.disconnect();
         session.nativePort = null;
         if (session.isActive) {
@@ -251,7 +268,7 @@ function startNativeSession(text: string, voice: string, rateString: string, for
     nativePort.postMessage({ type: "START", text, voice, rateString });
   } catch (e: any) {
     session.error = e.message || e.toString();
-    preloadCache.delete(text);
+    preloadCache.delete(cacheKey);
   }
 
   return session;
@@ -265,8 +282,9 @@ async function processPreloadQueue() {
   isPreloading = true;
   while (preloadQueue.length > 0) {
     const item = preloadQueue.shift()!;
-    if (preloadCache.has(item.text)) {
-      const existing = preloadCache.get(item.text)!;
+    const cacheKey = getCacheKey(item.voice, item.rateString, item.text);
+    if (preloadCache.has(cacheKey)) {
+      const existing = preloadCache.get(cacheKey)!;
       if (!existing.error && (existing.isFinished || existing.nativePort)) {
         continue;
       }
@@ -299,11 +317,12 @@ chrome.runtime.onConnect.addListener((port: chrome.runtime.Port) => {
     }
     if (isSessionPort) {
       preloadQueue.length = 0;
-      for (const s of preloadCache.values()) {
+      for (const [key, s] of preloadCache.entries()) {
         s.isActive = false;
-        if (s.nativePort) {
+        if (s.nativePort && !s.isFinished) {
           try { s.nativePort.disconnect(); } catch (_) {}
           s.nativePort = null;
+          preloadCache.delete(key);
         }
       }
       chrome.runtime.sendMessage({ target: "offscreen", type: "STOP" }).catch(()=>{});
@@ -321,12 +340,15 @@ chrome.runtime.onConnect.addListener((port: chrome.runtime.Port) => {
             preloadQueue.splice(i, 1);
           }
         }
-        for (const t of msg.texts) {
-          const s = preloadCache.get(t);
-          if (s?.nativePort) {
-            try { s.nativePort.disconnect(); } catch (_) {}
+        for (const [key, s] of preloadCache.entries()) {
+          for (const t of msg.texts) {
+            if (key.endsWith(`::${t.trim()}`)) {
+              if (s?.nativePort) {
+                try { s.nativePort.disconnect(); } catch (_) {}
+              }
+              preloadCache.delete(key);
+            }
           }
-          preloadCache.delete(t);
         }
       } else {
         preloadQueue.length = 0;
@@ -353,11 +375,12 @@ chrome.runtime.onConnect.addListener((port: chrome.runtime.Port) => {
           s.isActive = false;
         }
 
+        const cacheKey = getCacheKey(msg.voice, msg.rateString, msg.text);
         const session = startNativeSession(msg.text, msg.voice, msg.rateString, !!msg.force);
         session.isActive = true;
 
         if (session.error) {
-          preloadCache.delete(msg.text);
+          preloadCache.delete(cacheKey);
           port.postMessage({ type: "error", error: session.error, text: msg.text });
           return;
         }
@@ -376,7 +399,7 @@ chrome.runtime.onConnect.addListener((port: chrome.runtime.Port) => {
 
         if (session.isFinished) {
           if (session.audioChunks.length === 0) {
-            preloadCache.delete(msg.text);
+            preloadCache.delete(cacheKey);
             port.postMessage({ type: "error", error: "Empty audio generated. Please retry.", text: msg.text });
             return;
           }
@@ -387,7 +410,8 @@ chrome.runtime.onConnect.addListener((port: chrome.runtime.Port) => {
         }
 
       } catch (error: any) {
-        preloadCache.delete(msg.text);
+        const cacheKey = getCacheKey(msg.voice, msg.rateString, msg.text);
+        preloadCache.delete(cacheKey);
         port.postMessage({ type: "error", error: error.message || error.toString(), text: msg.text });
       }
     } else if (msg.type === "PLAY") {
@@ -395,16 +419,21 @@ chrome.runtime.onConnect.addListener((port: chrome.runtime.Port) => {
     } else if (msg.type === "PAUSE") {
       chrome.runtime.sendMessage({ target: "offscreen", type: "PAUSE" }).catch(()=>{});
     } else if (msg.type === "STOP") {
-      for (const s of preloadCache.values()) {
-        s.isActive = false;
-        if (s.nativePort) {
-          try { s.nativePort.disconnect(); } catch (_) {}
-          s.nativePort = null;
+      for (const [key, s] of preloadCache.entries()) {
+        if (s.isActive) {
+          s.isActive = false;
+          if (s.nativePort && !s.isFinished) {
+            try { s.nativePort.disconnect(); } catch (_) {}
+            s.nativePort = null;
+            preloadCache.delete(key);
+          }
         }
       }
       chrome.runtime.sendMessage({ target: "offscreen", type: "STOP" }).catch(()=>{});
     } else if (msg.type === "SEEK") {
       chrome.runtime.sendMessage({ target: "offscreen", type: "SEEK", offset: msg.offset }).catch(()=>{});
+    } else if (msg.type === "SET_PLAYBACK_RATE") {
+      chrome.runtime.sendMessage({ target: "offscreen", type: "SET_PLAYBACK_RATE", rate: msg.rate }).catch(()=>{});
     }
   });
 });

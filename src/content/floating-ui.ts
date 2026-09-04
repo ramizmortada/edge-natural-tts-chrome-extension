@@ -1,6 +1,6 @@
 import { state } from './state';
 import { clearHighlight, clearSentenceHover } from './highlighter';
-import { createElement, Play, Pause, Square, Loader2 } from 'lucide';
+import { createElement, Play, Pause, Square, Loader2, Plus, Minus } from 'lucide';
 
 export const PLAY_BTN_BG_IDLE = "rgba(16, 185, 129, 0.2)";
 export const PLAY_BTN_BORDER_IDLE = "rgba(16, 185, 129, 0.4)";
@@ -28,19 +28,24 @@ export const PLAY_SVG = createElement(Play, {
 }).outerHTML;
 
 export const PAUSE_SVG = createElement(Pause, {
-  width: 9.5,
-  height: 9.5,
+  width: 10,
+  height: 10,
   fill: 'currentColor',
-  stroke: 'currentColor',
-  'stroke-width': 2,
-  'stroke-linecap': 'round',
-  'stroke-linejoin': 'round',
+  stroke: 'none',
   style: 'display: block; flex-shrink: 0;'
 }).outerHTML;
 
 export const LOAD_SVG = createElement(Loader2, {
   width: 10.5,
   height: 10.5,
+  stroke: 'currentColor',
+  'stroke-width': 2.5,
+  style: 'display: block; flex-shrink: 0;'
+}).outerHTML;
+
+export const GLOBAL_LOAD_SVG = createElement(Loader2, {
+  width: 14,
+  height: 14,
   stroke: 'currentColor',
   'stroke-width': 2.5,
   style: 'display: block; flex-shrink: 0;'
@@ -61,10 +66,7 @@ export const GLOBAL_PAUSE_SVG = createElement(Pause, {
   width: 14,
   height: 14,
   fill: 'currentColor',
-  stroke: 'currentColor',
-  'stroke-width': 2,
-  'stroke-linecap': 'round',
-  'stroke-linejoin': 'round',
+  stroke: 'none',
   style: 'display: block; flex-shrink: 0;'
 }).outerHTML;
 
@@ -74,6 +76,26 @@ export const GLOBAL_STOP_SVG = createElement(Square, {
   fill: 'currentColor',
   stroke: 'currentColor',
   'stroke-width': 2,
+  'stroke-linecap': 'round',
+  'stroke-linejoin': 'round',
+  style: 'display: block; flex-shrink: 0;'
+}).outerHTML;
+
+export const GLOBAL_PLUS_SVG = createElement(Plus, {
+  width: 13,
+  height: 13,
+  stroke: 'currentColor',
+  'stroke-width': 2.5,
+  'stroke-linecap': 'round',
+  'stroke-linejoin': 'round',
+  style: 'display: block; flex-shrink: 0;'
+}).outerHTML;
+
+export const GLOBAL_MINUS_SVG = createElement(Minus, {
+  width: 13,
+  height: 13,
+  stroke: 'currentColor',
+  'stroke-width': 2.5,
   'stroke-linecap': 'round',
   'stroke-linejoin': 'round',
   style: 'display: block; flex-shrink: 0;'
@@ -155,6 +177,61 @@ export function setPlayButtonLoading() {
   }
 }
 
+let currentFloatingTheme: 'light' | 'dark' = 'dark';
+
+export function applyFloatingTheme(theme: 'light' | 'dark') {
+  currentFloatingTheme = theme;
+  if (theme === 'light') {
+    floatingBar.style.backgroundColor = "rgba(255, 255, 255, 0.96)";
+    floatingBar.style.borderColor = "rgba(203, 213, 225, 0.85)";
+    floatingBar.style.boxShadow = "0 8px 30px rgba(0, 0, 0, 0.12), 0 2px 6px rgba(0, 0, 0, 0.06)";
+
+    globalPlayPauseButton.style.backgroundColor = "rgba(16, 185, 129, 0.12)";
+    globalPlayPauseButton.style.borderColor = "rgba(16, 185, 129, 0.35)";
+    globalPlayPauseButton.style.color = "#059669";
+
+    stopButton.style.backgroundColor = "rgba(239, 68, 68, 0.1)";
+    stopButton.style.borderColor = "rgba(239, 68, 68, 0.3)";
+    stopButton.style.color = "#dc2626";
+
+    floatingDivider.style.backgroundColor = "rgba(0, 0, 0, 0.08)";
+
+    speedPlusButton.style.backgroundColor = "rgba(0, 0, 0, 0.04)";
+    speedPlusButton.style.borderColor = "rgba(203, 213, 225, 0.85)";
+    speedPlusButton.style.color = "#475569";
+
+    speedLabel.style.color = "#64748b";
+
+    speedMinusButton.style.backgroundColor = "rgba(0, 0, 0, 0.04)";
+    speedMinusButton.style.borderColor = "rgba(203, 213, 225, 0.85)";
+    speedMinusButton.style.color = "#475569";
+  } else {
+    floatingBar.style.backgroundColor = "rgba(9, 14, 12, 0.95)";
+    floatingBar.style.borderColor = "rgba(16, 185, 129, 0.25)";
+    floatingBar.style.boxShadow = "none";
+
+    globalPlayPauseButton.style.backgroundColor = "rgba(16, 185, 129, 0.15)";
+    globalPlayPauseButton.style.borderColor = "rgba(16, 185, 129, 0.3)";
+    globalPlayPauseButton.style.color = "#10b981";
+
+    stopButton.style.backgroundColor = "rgba(239, 68, 68, 0.15)";
+    stopButton.style.borderColor = "rgba(239, 68, 68, 0.3)";
+    stopButton.style.color = "#ef4444";
+
+    floatingDivider.style.backgroundColor = "rgba(255, 255, 255, 0.12)";
+
+    speedPlusButton.style.backgroundColor = "rgba(255, 255, 255, 0.08)";
+    speedPlusButton.style.borderColor = "rgba(255, 255, 255, 0.15)";
+    speedPlusButton.style.color = "#cbd5e1";
+
+    speedLabel.style.color = "#94a3b8";
+
+    speedMinusButton.style.backgroundColor = "rgba(255, 255, 255, 0.08)";
+    speedMinusButton.style.borderColor = "rgba(255, 255, 255, 0.15)";
+    speedMinusButton.style.color = "#cbd5e1";
+  }
+}
+
 export const floatingBar = document.createElement("div");
 floatingBar.id = "edge-tts-floating-bar";
 Object.assign(floatingBar.style, {
@@ -171,7 +248,7 @@ Object.assign(floatingBar.style, {
   flexDirection: "column",
   gap: "6px",
   zIndex: "2147483647",
-  transition: "transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.3s",
+  transition: "transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.3s, background-color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease",
   opacity: "0",
   pointerEvents: "none",
   boxShadow: "none"
@@ -199,22 +276,51 @@ Object.assign(globalPlayPauseButton.style, {
   alignItems: "center",
   justifyContent: "center",
   cursor: "pointer",
-  transition: "background-color 0.15s ease, border-color 0.15s ease"
+  transition: "background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease"
 });
 globalPlayPauseButton.onmouseenter = () => {
-  globalPlayPauseButton.style.backgroundColor = "rgba(16, 185, 129, 0.25)";
-  globalPlayPauseButton.style.borderColor = "rgba(16, 185, 129, 0.5)";
+  if (currentFloatingTheme === 'light') {
+    globalPlayPauseButton.style.backgroundColor = "rgba(16, 185, 129, 0.22)";
+    globalPlayPauseButton.style.borderColor = "rgba(16, 185, 129, 0.55)";
+  } else {
+    globalPlayPauseButton.style.backgroundColor = "rgba(16, 185, 129, 0.25)";
+    globalPlayPauseButton.style.borderColor = "rgba(16, 185, 129, 0.5)";
+  }
 };
 globalPlayPauseButton.onmouseleave = () => {
-  globalPlayPauseButton.style.backgroundColor = "rgba(16, 185, 129, 0.15)";
-  globalPlayPauseButton.style.borderColor = "rgba(16, 185, 129, 0.3)";
+  if (currentFloatingTheme === 'light') {
+    globalPlayPauseButton.style.backgroundColor = "rgba(16, 185, 129, 0.12)";
+    globalPlayPauseButton.style.borderColor = "rgba(16, 185, 129, 0.35)";
+  } else {
+    globalPlayPauseButton.style.backgroundColor = "rgba(16, 185, 129, 0.15)";
+    globalPlayPauseButton.style.borderColor = "rgba(16, 185, 129, 0.3)";
+  }
 };
 
+let globalSpinAnimation: Animation | null = null;
+
 export function updateGlobalPlayPauseIcon() {
-  if (state.isPlaying) {
-    globalPlayPauseButton.innerHTML = GLOBAL_PAUSE_SVG;
+  if (state.isLoading) {
+    globalPlayPauseButton.innerHTML = GLOBAL_LOAD_SVG;
+    if (globalPlayPauseButton.firstElementChild) {
+      if (globalSpinAnimation) {
+        try { globalSpinAnimation.cancel(); } catch (_) {}
+      }
+      globalSpinAnimation = (globalPlayPauseButton.firstElementChild as HTMLElement).animate(
+        [{ transform: 'rotate(0deg)' }, { transform: 'rotate(360deg)' }],
+        { duration: 1000, iterations: Infinity }
+      );
+    }
   } else {
-    globalPlayPauseButton.innerHTML = GLOBAL_PLAY_SVG;
+    if (globalSpinAnimation) {
+      try { globalSpinAnimation.cancel(); } catch (_) {}
+      globalSpinAnimation = null;
+    }
+    if (state.isPlaying) {
+      globalPlayPauseButton.innerHTML = GLOBAL_PAUSE_SVG;
+    } else {
+      globalPlayPauseButton.innerHTML = GLOBAL_PLAY_SVG;
+    }
   }
 }
 updateGlobalPlayPauseIcon();
@@ -224,11 +330,20 @@ export function setPlaying(val: boolean) {
   updateGlobalPlayPauseIcon();
 }
 
+export function setLoading(val: boolean) {
+  state.isLoading = val;
+  updateGlobalPlayPauseIcon();
+}
+
 globalPlayPauseButton.onclick = () => {
+  if (state.isLoading) {
+    stopSession();
+    return;
+  }
   if (state.isPlaying && state.activePort) {
     state.activePort.postMessage({ type: "PAUSE" });
     setPlaying(false);
-    clearHighlight(false);
+    // Keep highlight on pause so user knows where reading stopped
     if (state.currentTarget === state.activeTarget) {
       playButton.innerHTML = PLAY_SVG;
       playButton.style.background = "#10b981";
@@ -267,15 +382,25 @@ Object.assign(stopButton.style, {
   alignItems: "center",
   justifyContent: "center",
   cursor: "pointer",
-  transition: "background-color 0.15s ease, border-color 0.15s ease"
+  transition: "background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease"
 });
 stopButton.onmouseenter = () => {
-  stopButton.style.backgroundColor = "rgba(239, 68, 68, 0.25)";
-  stopButton.style.borderColor = "rgba(239, 68, 68, 0.5)";
+  if (currentFloatingTheme === 'light') {
+    stopButton.style.backgroundColor = "rgba(239, 68, 68, 0.2)";
+    stopButton.style.borderColor = "rgba(239, 68, 68, 0.5)";
+  } else {
+    stopButton.style.backgroundColor = "rgba(239, 68, 68, 0.25)";
+    stopButton.style.borderColor = "rgba(239, 68, 68, 0.5)";
+  }
 };
 stopButton.onmouseleave = () => {
-  stopButton.style.backgroundColor = "rgba(239, 68, 68, 0.15)";
-  stopButton.style.borderColor = "rgba(239, 68, 68, 0.3)";
+  if (currentFloatingTheme === 'light') {
+    stopButton.style.backgroundColor = "rgba(239, 68, 68, 0.1)";
+    stopButton.style.borderColor = "rgba(239, 68, 68, 0.3)";
+  } else {
+    stopButton.style.backgroundColor = "rgba(239, 68, 68, 0.15)";
+    stopButton.style.borderColor = "rgba(239, 68, 68, 0.3)";
+  }
 };
 
 stopButton.onclick = () => {
@@ -283,7 +408,166 @@ stopButton.onclick = () => {
 };
 
 floatingBar.appendChild(stopButton);
+
+export const floatingDivider = document.createElement("div");
+Object.assign(floatingDivider.style, {
+  width: "100%",
+  height: "1px",
+  backgroundColor: "rgba(255, 255, 255, 0.12)",
+  margin: "1px 0"
+});
+floatingBar.appendChild(floatingDivider);
+
+export const speedPlusButton = document.createElement("button");
+speedPlusButton.innerHTML = GLOBAL_PLUS_SVG;
+Object.assign(speedPlusButton.style, {
+  width: "30px",
+  height: "26px",
+  minWidth: "30px",
+  minHeight: "26px",
+  maxWidth: "30px",
+  maxHeight: "26px",
+  padding: "0",
+  margin: "0",
+  boxSizing: "border-box",
+  lineHeight: "0",
+  fontSize: "0",
+  outline: "none",
+  borderRadius: "6px",
+  border: "1px solid rgba(255, 255, 255, 0.15)",
+  backgroundColor: "rgba(255, 255, 255, 0.08)",
+  color: "#cbd5e1",
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  cursor: "pointer",
+  transition: "background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease"
+});
+speedPlusButton.onmouseenter = () => {
+  if (currentFloatingTheme === 'light') {
+    speedPlusButton.style.backgroundColor = "rgba(0, 0, 0, 0.08)";
+    speedPlusButton.style.borderColor = "rgba(148, 163, 184, 0.9)";
+    speedPlusButton.style.color = "#0f172a";
+  } else {
+    speedPlusButton.style.backgroundColor = "rgba(255, 255, 255, 0.18)";
+    speedPlusButton.style.borderColor = "rgba(255, 255, 255, 0.3)";
+    speedPlusButton.style.color = "#ffffff";
+  }
+};
+speedPlusButton.onmouseleave = () => {
+  if (currentFloatingTheme === 'light') {
+    speedPlusButton.style.backgroundColor = "rgba(0, 0, 0, 0.04)";
+    speedPlusButton.style.borderColor = "rgba(203, 213, 225, 0.85)";
+    speedPlusButton.style.color = "#475569";
+  } else {
+    speedPlusButton.style.backgroundColor = "rgba(255, 255, 255, 0.08)";
+    speedPlusButton.style.borderColor = "rgba(255, 255, 255, 0.15)";
+    speedPlusButton.style.color = "#cbd5e1";
+  }
+};
+floatingBar.appendChild(speedPlusButton);
+
+export const speedLabel = document.createElement("div");
+speedLabel.textContent = "1.0x";
+Object.assign(speedLabel.style, {
+  width: "30px",
+  fontSize: "9.5px",
+  fontWeight: "600",
+  textAlign: "center",
+  color: "#94a3b8",
+  userSelect: "none",
+  lineHeight: "1.2",
+  letterSpacing: "-0.02em",
+  padding: "1px 0",
+  fontFamily: "system-ui, -apple-system, sans-serif"
+});
+floatingBar.appendChild(speedLabel);
+
+export const speedMinusButton = document.createElement("button");
+speedMinusButton.innerHTML = GLOBAL_MINUS_SVG;
+Object.assign(speedMinusButton.style, {
+  width: "30px",
+  height: "26px",
+  minWidth: "30px",
+  minHeight: "26px",
+  maxWidth: "30px",
+  maxHeight: "26px",
+  padding: "0",
+  margin: "0",
+  boxSizing: "border-box",
+  lineHeight: "0",
+  fontSize: "0",
+  outline: "none",
+  borderRadius: "6px",
+  border: "1px solid rgba(255, 255, 255, 0.15)",
+  backgroundColor: "rgba(255, 255, 255, 0.08)",
+  color: "#cbd5e1",
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  cursor: "pointer",
+  transition: "background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease"
+});
+speedMinusButton.onmouseenter = () => {
+  if (currentFloatingTheme === 'light') {
+    speedMinusButton.style.backgroundColor = "rgba(0, 0, 0, 0.08)";
+    speedMinusButton.style.borderColor = "rgba(148, 163, 184, 0.9)";
+    speedMinusButton.style.color = "#0f172a";
+  } else {
+    speedMinusButton.style.backgroundColor = "rgba(255, 255, 255, 0.18)";
+    speedMinusButton.style.borderColor = "rgba(255, 255, 255, 0.3)";
+    speedMinusButton.style.color = "#ffffff";
+  }
+};
+speedMinusButton.onmouseleave = () => {
+  if (currentFloatingTheme === 'light') {
+    speedMinusButton.style.backgroundColor = "rgba(0, 0, 0, 0.04)";
+    speedMinusButton.style.borderColor = "rgba(203, 213, 225, 0.85)";
+    speedMinusButton.style.color = "#475569";
+  } else {
+    speedMinusButton.style.backgroundColor = "rgba(255, 255, 255, 0.08)";
+    speedMinusButton.style.borderColor = "rgba(255, 255, 255, 0.15)";
+    speedMinusButton.style.color = "#cbd5e1";
+  }
+};
+floatingBar.appendChild(speedMinusButton);
+
 document.body.appendChild(floatingBar);
+
+let currentFloatingRate = 0;
+let onSpeedChangeCallback: ((newRate: number) => void) | null = null;
+
+export function setOnSpeedChangeCallback(cb: (newRate: number) => void) {
+  onSpeedChangeCallback = cb;
+}
+
+export function formatSpeedRate(rateVal: number): string {
+  const mult = 1 + rateVal / 100;
+  const rounded = Math.round(mult * 100) / 100;
+  const str = (Math.abs(rounded * 10 - Math.round(rounded * 10)) < 0.001) ? rounded.toFixed(1) : rounded.toFixed(2);
+  return `${str}x`;
+}
+
+export function updateFloatingSpeed(rateVal: number) {
+  currentFloatingRate = Math.max(-50, Math.min(100, rateVal));
+  const label = formatSpeedRate(currentFloatingRate);
+  speedLabel.textContent = label;
+}
+
+export function changeSpeedDelta(delta: number) {
+  chrome.storage.local.get(["rate"], (res: Record<string, any>) => {
+    const cur = (Array.isArray(res.rate) && res.rate.length > 0) ? res.rate[0] : currentFloatingRate;
+    const next = Math.max(-50, Math.min(100, cur + delta));
+    updateFloatingSpeed(next);
+    chrome.storage.local.set({ rate: [next] });
+    if (onSpeedChangeCallback) {
+      onSpeedChangeCallback(next);
+    }
+  });
+}
+
+speedPlusButton.onclick = () => changeSpeedDelta(10);
+speedMinusButton.onclick = () => changeSpeedDelta(-10);
 
 export function stopSession() {
   if (state.activePort) {
@@ -292,7 +576,7 @@ export function stopSession() {
     state.activePort = null;
   }
   setPlaying(false);
-  state.isLoading = false;
+  setLoading(false);
   state.activeTarget = null;
   clearHighlight(true);
   clearSentenceHover();

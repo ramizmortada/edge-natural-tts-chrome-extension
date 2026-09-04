@@ -2,21 +2,44 @@
 import { state } from './state';
 import { getClosestValidElement, checkIgnoredSites } from './dom-scanner';
 import { injectHighlightStyles, handleSentenceHover, clearSentenceHover } from './highlighter';
-import { playButton, floatingBar, globalPlayPauseButton, syncPosition, updatePlayButtonAppearance } from './floating-ui';
-import { handlePlayAction } from './tts-client';
+import { playButton, floatingBar, globalPlayPauseButton, syncPosition, updatePlayButtonAppearance, applyFloatingTheme, updateFloatingSpeed, setOnSpeedChangeCallback } from './floating-ui';
+import { handlePlayAction, applySpeedChangeDuringPlayback } from './tts-client';
 
 // 1. Inject styling for CSS Custom Highlights
 injectHighlightStyles();
 
-// 2. Load and listen for ignored sites
+// 2. Connect floating UI speed adjustment to active playback
+setOnSpeedChangeCallback((newRate) => {
+  applySpeedChangeDuringPlayback(newRate);
+});
+
+// 3. Load and listen for ignored sites, theme preference, and speed rate
 try {
-  chrome.storage.local.get(["ignoredSites"], (result: Record<string, any>) => {
+  chrome.storage.local.get(["ignoredSites", "pdfTheme", "theme", "rate"], (result: Record<string, any>) => {
     checkIgnoredSites(Array.isArray(result.ignoredSites) ? result.ignoredSites : []);
+    const themeVal = result.theme || result.pdfTheme;
+    if (themeVal === 'light') {
+      applyFloatingTheme('light');
+    } else {
+      applyFloatingTheme('dark');
+    }
+    if (result.rate && Array.isArray(result.rate) && result.rate.length > 0) {
+      updateFloatingSpeed(result.rate[0]);
+    }
   });
 
   chrome.storage.onChanged.addListener((changes, namespace) => {
-    if (namespace === 'local' && changes.ignoredSites) {
-      checkIgnoredSites(Array.isArray(changes.ignoredSites.newValue) ? changes.ignoredSites.newValue : []);
+    if (namespace === 'local') {
+      if (changes.ignoredSites) {
+        checkIgnoredSites(Array.isArray(changes.ignoredSites.newValue) ? changes.ignoredSites.newValue : []);
+      }
+      if (changes.theme || changes.pdfTheme) {
+        const next = changes.theme ? changes.theme.newValue : changes.pdfTheme?.newValue;
+        applyFloatingTheme(next === 'light' ? 'light' : 'dark');
+      }
+      if (changes.rate && Array.isArray(changes.rate.newValue) && changes.rate.newValue.length > 0) {
+        updateFloatingSpeed(changes.rate.newValue[0]);
+      }
     }
   });
 } catch (e) {}
@@ -35,16 +58,17 @@ document.addEventListener("click", (e) => {
     return;
   }
 
-  if (state.hoveredValidEl && state.activeTarget !== null) {
+  const clickedValidEl = getClosestValidElement(target);
+  if (clickedValidEl && state.activeTarget !== null) {
     e.preventDefault();
     e.stopPropagation();
 
-    if (state.hoveredValidEl === state.activeTarget && state.isPlaying && state.hoveredAudioOffset !== null && state.activePort) {
+    if (clickedValidEl === state.activeTarget && state.isPlaying && state.hoveredAudioOffset !== null && state.activePort) {
       state.activePort.postMessage({ type: "SEEK", offset: state.hoveredAudioOffset / 1000 });
     } else {
-      state.pendingSeekCharOffset = state.hoveredSentenceStart;
-      state.currentTarget = state.hoveredValidEl;
-      handlePlayAction(null, state.hoveredValidEl);
+      state.pendingSeekCharOffset = (clickedValidEl === state.hoveredValidEl) ? state.hoveredSentenceStart : null;
+      state.currentTarget = clickedValidEl;
+      handlePlayAction(null, clickedValidEl);
     }
   }
 }, true);
@@ -52,7 +76,6 @@ document.addEventListener("click", (e) => {
 // 5. Mousemove event listener (Hover sentence detection & Play button placement)
 document.addEventListener("mousemove", (e) => {
   if (state.isSiteIgnored) return;
-  if (state.isLoading) return;
 
   const target = e.target as HTMLElement;
   const validEl = getClosestValidElement(target);

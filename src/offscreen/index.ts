@@ -18,6 +18,7 @@ let isFirstAppend = true;
 let isPausedState = false;
 let isStopped = true;
 let timeUpdateInterval: any = null;
+let currentPlaybackRate = 1.0;
 
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   if (msg.target !== "offscreen") return;
@@ -35,7 +36,9 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
       isPausedState = false;
       isStopped = false;
       sourceBuffer = null;
+      currentPlaybackRate = 1.0;
       audioRef = new Audio();
+      audioRef.playbackRate = currentPlaybackRate;
       mediaSource = new MediaSource();
       audioRef.src = URL.createObjectURL(mediaSource);
       
@@ -49,7 +52,10 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
             if (isFirstAppend) {
               isFirstAppend = false;
               if (!isPausedState && !isStopped) {
-                audioRef?.play().catch(e => console.error("Offscreen play failed:", e));
+                audioRef?.play().catch(e => {
+                  console.error("Offscreen play failed:", e);
+                  chrome.runtime.sendMessage({ type: "PLAYBACK_ERROR", error: e.message || String(e) }).catch(()=>{});
+                });
               }
             }
             if (queue.length > 0 && !sourceBuffer?.updating && !isStopped) {
@@ -121,6 +127,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
       mediaSource = null;
 
       audioRef = new Audio();
+      audioRef.playbackRate = currentPlaybackRate;
       let byteChunks: Uint8Array[] = [];
       if (Array.isArray(msg.data)) {
         byteChunks = msg.data.map((b64: string) => base64ToUint8Array(b64));
@@ -143,7 +150,10 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
         }
       }, 50);
 
-      audioRef.play().catch(e => console.error("Offscreen WAV play failed:", e));
+      audioRef.play().catch(e => {
+        console.error("Offscreen WAV play failed:", e);
+        chrome.runtime.sendMessage({ type: "PLAYBACK_ERROR", error: e.message || String(e) }).catch(()=>{});
+      });
       break;
 
     case "END_STREAM":
@@ -186,9 +196,19 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
       }
       break;
 
+    case "SET_PLAYBACK_RATE":
+      if (typeof msg.rate === "number" && msg.rate > 0) {
+        currentPlaybackRate = msg.rate;
+        if (audioRef) {
+          audioRef.playbackRate = currentPlaybackRate;
+        }
+      }
+      break;
+
     case "STOP":
       isStopped = true;
       isPausedState = false;
+      currentPlaybackRate = 1.0;
       queue = [];
       if (audioRef) {
         audioRef.pause();

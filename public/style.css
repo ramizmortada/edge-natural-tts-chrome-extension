@@ -50,11 +50,10 @@ body {
 }
 
 .app-logo {
-  width: 36px;
-  height: 36px;
-  border-radius: 8px;
+  width: 32px;
+  height: 32px;
   object-fit: contain;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+  box-shadow: none;
 }
 
 .header-text {
@@ -75,6 +74,30 @@ body {
   font-size: 11px;
   color: #94a3b8;
   font-weight: 400;
+}
+
+.theme-toggle-btn {
+  margin-left: auto;
+  width: 28px;
+  height: 28px;
+  min-width: 28px;
+  min-height: 28px;
+  border-radius: 7px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.05);
+  color: #94a3b8;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  padding: 0;
+  transition: all 0.15s ease;
+}
+
+.theme-toggle-btn:hover {
+  background: rgba(255, 255, 255, 0.12);
+  color: #f8fafc;
+  border-color: rgba(255, 255, 255, 0.25);
 }
 
 .description {
@@ -552,6 +575,12 @@ label {
   color: #64748b;
 }
 
+.footer-left {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
 .footer-version {
   font-family: monospace;
 }
@@ -568,9 +597,25 @@ label {
   transition: color 0.15s ease;
 }
 
-.footer-check-btn:hover {
+.footer-github-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: #64748b;
+  text-decoration: none;
+  font-size: 11px;
+  font-weight: 500;
+  transition: color 0.15s ease;
+}
+
+.footer-github-link:hover {
   color: #94a3b8;
   text-decoration: underline;
+}
+
+.footer-github-link svg {
+  display: block;
+  flex-shrink: 0;
 }
 
 /* Light Theme Support */
@@ -580,12 +625,29 @@ body.light-theme {
   color: #0f172a;
 }
 
-body.light-theme .popup-header {
-  border-bottom-color: rgba(0, 0, 0, 0.08);
+body.light-theme .theme-toggle-btn {
+  border-color: #cbd5e1;
+  background: #ffffff;
+  color: #475569;
 }
 
-body.light-theme .app-logo {
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+body.light-theme .theme-toggle-btn:hover {
+  background: #f1f5f9;
+  color: #0f172a;
+  border-color: #94a3b8;
+}
+
+body.light-theme .footer-github-link {
+  color: #64748b;
+}
+
+body.light-theme .footer-github-link:hover {
+  color: #0f172a;
+  text-decoration: underline;
+}
+
+body.light-theme .popup-header {
+  border-bottom-color: rgba(0, 0, 0, 0.08);
 }
 
 body.light-theme .app-title {

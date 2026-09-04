@@ -17,18 +17,16 @@ A Chromium browser extension that reads webpages and documents aloud using natur
 
 ### Document & Book Reader (`pdf-reader.html`)
 - **Multi-Format Support**: Reads PDF (`.pdf`), Word (`.docx`), EPUB (`.epub`), Markdown (`.md`), Plain Text (`.txt`), and HTML (`.html`).
-- **Two Viewing Modes**:
-  - **Reader Mode**: Distraction-free book layout with chapter navigation, word count, and customizable typography.
-  - **PDF Mode**: Original multi-page PDF canvas view rendered with PDF.js, including zoom and fit-to-width controls.
+- **Distraction-Free Reader Mode**: Optimized book layout with chapter navigation, word count, and customizable typography.
 - **Speech Auto-Scroll**: Automatically scrolls the document view to follow active speech.
 - **Gemini AI Text Cleaner**: Optional page-by-page cleanup using Google Gemini to fix OCR breaks and hyphenation artifacts while preserving original wording (with undo support).
 - **Local Library & Reading State**: Automatically saves documents, reading progress, and scroll positions in IndexedDB to resume anytime.
 - **Markdown Export**: Export cleaned document text to Markdown files.
-- **Customizable Appearance**: 4 themes (Dark, Dark Sepia, Sepia, Light), font family switcher (Sans, Serif, Mono), and adjustable font sizes.
+- **Customizable Appearance**: 2 themes (Dark and Light), font family switcher (Sans, Serif, Mono), and adjustable font sizes.
 
 ### Voices & Playback Controls
-- High-quality natural voices (Aria, Guy, Sonia, Ryan, Natasha, William).
-- Adjustable playback speed slider (-50% to +100%).
+- **Cloud & Local Neural Voices**: High-quality natural voices powered by Microsoft Edge Neural TTS (Aria, Guy, Sonia, Ryan, Natasha, William) and local offline on-device AI voices powered by Kokoro-82M (Kokoro Heart, Kokoro Adam, Kokoro Emma).
+- **Adjustable Playback Speed**: Precise speed control slider and quick step buttons (-50% to +100%).
 
 ---
 
@@ -89,7 +87,6 @@ When a new release is available, the extension will display a **NEW** badge in y
 1. Click the extension icon in your browser toolbar and select **Open PDF Reader** (or navigate to `chrome-extension://<YOUR_EXTENSION_ID>/pdf-reader.html`).
 2. Drag and drop any supported file (`.pdf`, `.docx`, `.epub`, `.md`, `.txt`, `.html`) into the reader window.
 3. Click on any sentence to start reading aloud, or use the top playback bar controls.
-4. Switch between **Reader Mode** and **PDF Mode** using the top navigation bar.
 
 ### (Optional) Gemini AI Cleanup
 1. In the Document Reader, click the ✨ (**AI Clean**) button in the top bar.

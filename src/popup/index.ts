@@ -1,4 +1,4 @@
-import { createElement, Check, ChevronDown, Minus, Plus } from 'lucide';
+import { createElement, Check, ChevronDown, Minus, Plus, Sun, Moon } from 'lucide';
 
 interface VoiceOption {
   id: string;
@@ -53,6 +53,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const speedOptionsList = document.getElementById('speed-options-list');
 
   const toggleSiteBtn = document.getElementById('toggle-site-btn') as HTMLButtonElement;
+  const themeToggleBtn = document.getElementById('theme-toggle-btn') as HTMLButtonElement | null;
 
   // Replace static popup icons with official Lucide SVGs
   const voiceChevron = document.getElementById('voice-chevron');
@@ -238,8 +239,20 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
+  let currentTheme: 'dark' | 'light' = 'dark';
+
+  function updateThemeToggleBtn() {
+    if (!themeToggleBtn) return;
+    const isLight = currentTheme === 'light';
+    themeToggleBtn.innerHTML = isLight
+      ? createElement(Moon, { width: 14, height: 14, stroke: 'currentColor' }).outerHTML
+      : createElement(Sun, { width: 14, height: 14, stroke: 'currentColor' }).outerHTML;
+    themeToggleBtn.title = isLight ? "Switch to Dark theme" : "Switch to Light theme";
+  }
+
   function applyTheme(theme?: string) {
     const isLight = theme === 'light' || (!theme && window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches);
+    currentTheme = isLight ? 'light' : 'dark';
     const logoEl = document.getElementById('app-logo') as HTMLImageElement | null;
     const faviconEl = document.getElementById('popup-favicon') as HTMLLinkElement | null;
     if (logoEl) logoEl.src = 'logo.png';
@@ -249,11 +262,22 @@ document.addEventListener('DOMContentLoaded', () => {
     } else {
       document.body.classList.remove('light-theme');
     }
+    updateThemeToggleBtn();
+  }
+
+  if (themeToggleBtn) {
+    themeToggleBtn.addEventListener('click', () => {
+      const nextTheme = currentTheme === 'light' ? 'dark' : 'light';
+      chrome.storage.local.set({ pdfTheme: nextTheme, theme: nextTheme });
+      applyTheme(nextTheme);
+    });
   }
 
   chrome.storage.onChanged.addListener((changes, area) => {
     if (area === 'local') {
-      if (changes.pdfTheme) {
+      if (changes.theme) {
+        applyTheme(changes.theme.newValue);
+      } else if (changes.pdfTheme) {
         applyTheme(changes.pdfTheme.newValue);
       }
       if (changes.voice && changes.voice.newValue !== currentVoice) {
@@ -309,7 +333,7 @@ document.addEventListener('DOMContentLoaded', () => {
       openPdfBtn.title = `Import and open "${activePdfName}" in ReadFlow`;
     }
 
-    chrome.storage.local.get(["voice", "rate", "ignoredSites", "pdfTheme"], (result: Record<string, any>) => {
+    chrome.storage.local.get(["voice", "rate", "ignoredSites", "pdfTheme", "theme"], (result: Record<string, any>) => {
       if (result.voice) {
         currentVoice = String(result.voice);
       }
@@ -327,7 +351,7 @@ document.addEventListener('DOMContentLoaded', () => {
         isIgnored = ignoredSites.includes(currentDomain);
       }
       updateButtonState();
-      applyTheme(result.pdfTheme);
+      applyTheme(result.theme || result.pdfTheme);
     });
   });
 

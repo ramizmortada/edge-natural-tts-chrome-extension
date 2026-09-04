@@ -1,6 +1,6 @@
 {
   "name": "readflow",
-  "version": "1.0.5",
+  "version": "1.0.6",
   "description": "Natural text-to-speech extension using neural voices with synchronized word highlighting.",
   "private": true,
   "scripts": {
