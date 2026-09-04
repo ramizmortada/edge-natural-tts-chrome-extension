@@ -1,5 +1,5 @@
 /// <reference types="chrome" />
-import { getDocument, GlobalWorkerOptions, TextLayer } from 'pdfjs-dist';
+import { getDocument, GlobalWorkerOptions, TextLayer, VerbosityLevel } from 'pdfjs-dist';
 import { dom } from '../dom';
 import { state } from '../state';
 import { PageData, SentenceItem } from '../types';
@@ -56,7 +56,8 @@ export async function loadPDFFromBuffer(fileName: string, rawBuffer: ArrayBuffer
       cMapPacked: true,
       standardFontDataUrl: chrome.runtime.getURL('standard_fonts/'),
       iccUrl: chrome.runtime.getURL('iccs/'),
-      useWasm: true
+      useWasm: true,
+      verbosity: VerbosityLevel.ERRORS
     });
 
     loadingTask.onPassword = (updatePassword: any, reason: any) => {
@@ -77,6 +78,7 @@ export async function loadPDFFromBuffer(fileName: string, rawBuffer: ArrayBuffer
     };
 
     state.pdfDoc = await loadingTask.promise;
+    window.dispatchEvent(new CustomEvent('doc-loaded', { detail: { title: fileName, totalPages: state.pdfDoc.numPages } }));
     if (dom.pageNumInput) dom.pageNumInput.max = state.pdfDoc.numPages.toString();
     if (dom.pageCountSpan) dom.pageCountSpan.textContent = state.pdfDoc.numPages.toString();
     if (dom.pageNumInput) dom.pageNumInput.value = '1';

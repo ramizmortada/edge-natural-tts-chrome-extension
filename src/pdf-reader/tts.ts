@@ -5,6 +5,7 @@ import { SentenceItem } from './types';
 import { renderPage } from './loaders/pdf';
 
 export function openHostSetupModal() {
+  window.dispatchEvent(new CustomEvent('open-host-setup'));
   if (dom.hostSetupModal) {
     dom.hostSetupModal.style.display = 'flex';
   }
@@ -18,6 +19,7 @@ export function closeHostSetupModal() {
 
 export function setPlayState(playing: boolean) {
   state.isPlaying = playing;
+  window.dispatchEvent(new CustomEvent('tts-state-change', { detail: { isPlaying: playing, isPaused: state.isPaused, activeSentenceIndex: state.activeSentenceIndex } }));
   if (playing) {
     if (dom.ttsPlayBtn) dom.ttsPlayBtn.classList.add('playing');
     if (dom.ttsPlayIcon) dom.ttsPlayIcon.innerHTML = `<rect x="6" y="4" width="4" height="16"></rect><rect x="14" y="4" width="4" height="16"></rect>`;
@@ -25,6 +27,70 @@ export function setPlayState(playing: boolean) {
     if (dom.ttsPlayBtn) dom.ttsPlayBtn.classList.remove('playing');
     if (dom.ttsPlayIcon) dom.ttsPlayIcon.innerHTML = `<polygon points="5 3 19 12 5 21 5 3"></polygon>`;
   }
+}
+
+let lastHighlightedWord: any = null;
+
+export function startWordHighlightTick() {
+  if (state.currentHighlightTick) {
+    clearInterval(state.currentHighlightTick);
+    state.currentHighlightTick = null;
+  }
+
+  state.currentHighlightTick = setInterval(() => {
+    if (!state.isPlaying || state.isPaused) return;
+    if (state.activeSentenceIndex < 0 || state.activeSentenceIndex >= state.allSentences.length) return;
+
+    const sentence = state.allSentences[state.activeSentenceIndex];
+    const currentTimeMs = state.currentAudioTime * 1000;
+
+    const activeBoundary = state.activeWordBoundaries.find(wb =>
+      currentTimeMs >= wb.audioOffsetMs && currentTimeMs <= (wb.audioOffsetMs + wb.durationMs + 60)
+    );
+
+    if (activeBoundary && activeBoundary !== lastHighlightedWord) {
+      lastHighlightedWord = activeBoundary;
+      const targetEl = state.currentViewMode === 'reader' ? sentence.readerElement : (sentence.element || sentence.readerElement);
+      if (!targetEl) return;
+
+      try {
+        const baseOffset = (state.currentViewMode === 'reader') ? 0 : sentence.startOffsetInEl;
+        const start = baseOffset + activeBoundary.charOffset;
+        const wRange = createWordRange(targetEl, start, activeBoundary.charLength);
+
+        if (wRange && 'highlights' in CSS) {
+          const highlight = new (window as any).Highlight(wRange);
+          (CSS as any).highlights.set('edge-tts-highlight', highlight);
+          (CSS as any).highlights.set('aura-word-active', highlight);
+        }
+      } catch (_) {}
+    }
+  }, 25);
+}
+
+export function resumePlayback() {
+  if (state.activeSentenceIndex < 0 || state.activeSentenceIndex >= state.allSentences.length) {
+    return;
+  }
+
+  if (!state.activePort) {
+    playSentenceAtIndex(state.activeSentenceIndex);
+    return;
+  }
+
+  try {
+    state.activePort.postMessage({ type: "PLAY" });
+  } catch (_) {
+    playSentenceAtIndex(state.activeSentenceIndex);
+    return;
+  }
+
+  chrome.runtime.sendMessage({ target: "offscreen", type: "PLAY" }).catch(() => {});
+  state.isPaused = false;
+  state.isPlaying = true;
+  setPlayState(true);
+
+  startWordHighlightTick();
 }
 
 export function pausePlayback() {
@@ -37,7 +103,10 @@ export function pausePlayback() {
   state.isPaused = true;
   state.isPlaying = false;
   setPlayState(false);
-  if (state.currentHighlightTick) clearInterval(state.currentHighlightTick);
+  if (state.currentHighlightTick) {
+    clearInterval(state.currentHighlightTick);
+    state.currentHighlightTick = null;
+  }
 }
 
 export function stopPlayback() {
@@ -56,7 +125,11 @@ export function stopPlayback() {
   setPlayState(false);
   clearActiveHighlights();
   clearSentenceHover();
-  if (state.currentHighlightTick) clearInterval(state.currentHighlightTick);
+  lastHighlightedWord = null;
+  if (state.currentHighlightTick) {
+    clearInterval(state.currentHighlightTick);
+    state.currentHighlightTick = null;
+  }
 }
 
 export function createRangeForSentence(sentence: SentenceItem): Range | null {
@@ -91,6 +164,46 @@ export function createRangeForSentence(sentence: SentenceItem): Range | null {
   }
 }
 
+export function createWordRange(el: HTMLElement, charOffset: number, charLength: number): Range | null {
+  try {
+    let currentOffset = 0;
+    let startNode: Node | null = null;
+    let startNodeOffset = 0;
+    let endNode: Node | null = null;
+    let endNodeOffset = 0;
+
+    function traverse(node: Node) {
+      if (endNode) return;
+      if (node.nodeType === Node.TEXT_NODE) {
+        const nodeLen = node.textContent?.length || 0;
+        if (!startNode && currentOffset + nodeLen > charOffset) {
+          startNode = node;
+          startNodeOffset = Math.max(0, charOffset - currentOffset);
+        }
+        if (startNode && currentOffset + nodeLen >= charOffset + charLength) {
+          endNode = node;
+          endNodeOffset = Math.min(nodeLen, charOffset + charLength - currentOffset);
+        }
+        currentOffset += nodeLen;
+      } else {
+        for (const child of Array.from(node.childNodes)) {
+          traverse(child);
+        }
+      }
+    }
+
+    traverse(el);
+
+    if (startNode && endNode) {
+      const range = document.createRange();
+      range.setStart(startNode, startNodeOffset);
+      range.setEnd(endNode, endNodeOffset);
+      return range;
+    }
+  } catch (_) {}
+  return null;
+}
+
 export function clearSentenceHover() {
   if ('highlights' in CSS) {
     (CSS as any).highlights.delete('aura-sentence-hover');
@@ -106,6 +219,7 @@ export function clearSentenceHover() {
 export function clearActiveHighlights() {
   if ('highlights' in CSS) {
     (CSS as any).highlights.delete('edge-tts-highlight');
+    (CSS as any).highlights.delete('aura-word-active');
     (CSS as any).highlights.delete('aura-sentence-active');
   }
   if (dom.readerContent) {
@@ -217,31 +331,29 @@ export async function playSentenceAtIndex(idx: number, force = false, retryCount
             stopPlayback();
           }
         }
-      } else if (msg.type === "WordBoundary") {
-        if (msg.offset !== undefined) {
-          const audioOffsetMs = msg.offset / 10000;
-          const durationMs = msg.duration / 10000;
-          const wordStr = msg.textObj || "";
-          if (wordStr.length > 0) {
-            const charOffset = sentence.text.indexOf(wordStr, lastCharOffset);
-            if (charOffset !== -1) {
-              const charLength = wordStr.length;
-              lastCharOffset = charOffset + charLength;
-              state.activeWordBoundaries.push({ audioOffsetMs, durationMs, charOffset, charLength });
-            }
-          }
-        }
-      } else if (msg.type === "WordBoundaryArray") {
-        for (const wb of msg.data) {
-          const audioOffsetMs = wb.offset / 10000;
-          const durationMs = wb.duration / 10000;
-          const wordStr = wb.textObj || "";
-          if (wordStr.length > 0) {
-            const charOffset = sentence.text.indexOf(wordStr, lastCharOffset);
-            if (charOffset !== -1) {
-              const charLength = wordStr.length;
-              lastCharOffset = charOffset + charLength;
-              state.activeWordBoundaries.push({ audioOffsetMs, durationMs, charOffset, charLength });
+      } else if (msg.type === "WordBoundary" || msg.type === "WordBoundaryArray") {
+        const boundaries = msg.type === "WordBoundaryArray" ? msg.data : [msg];
+        for (const wb of boundaries) {
+          if (wb && wb.offset !== undefined) {
+            const audioOffsetMs = wb.offset / 10000;
+            const durationMs = wb.duration / 10000;
+            const wordStr = (wb.textObj || "").trim();
+            if (wordStr.length > 0) {
+              let charOffset = sentence.text.indexOf(wordStr, lastCharOffset);
+              if (charOffset === -1) {
+                charOffset = sentence.text.toLowerCase().indexOf(wordStr.toLowerCase(), lastCharOffset);
+              }
+              if (charOffset === -1) {
+                charOffset = sentence.text.indexOf(wordStr);
+              }
+              if (charOffset === -1) {
+                charOffset = sentence.text.toLowerCase().indexOf(wordStr.toLowerCase());
+              }
+              if (charOffset !== -1) {
+                const charLength = wordStr.length;
+                lastCharOffset = charOffset + charLength;
+                state.activeWordBoundaries.push({ audioOffsetMs, durationMs, charOffset, charLength });
+              }
             }
           }
         }
@@ -282,42 +394,8 @@ export async function playSentenceAtIndex(idx: number, force = false, retryCount
 
     sendPreloads(idx, state.currentVoice, rateString);
 
-    let lastHighlightedWord: any = null;
-    if (state.currentHighlightTick) clearInterval(state.currentHighlightTick);
-
-    state.currentHighlightTick = setInterval(() => {
-      if (!state.isPlaying) return;
-      const currentTimeMs = state.currentAudioTime * 1000;
-
-      const activeBoundary = state.activeWordBoundaries.find(wb =>
-        currentTimeMs >= wb.audioOffsetMs && currentTimeMs <= (wb.audioOffsetMs + wb.durationMs + 80)
-      );
-
-      if (activeBoundary && activeBoundary !== lastHighlightedWord) {
-        lastHighlightedWord = activeBoundary;
-        const targetEl = state.currentViewMode === 'reader' ? sentence.readerElement : (sentence.element || sentence.readerElement);
-        if (!targetEl) return;
-
-        const textNode = targetEl.firstChild;
-        if (!textNode || textNode.nodeType !== Node.TEXT_NODE) return;
-
-        try {
-          const wRange = document.createRange();
-          const baseOffset = (state.currentViewMode === 'reader') ? 0 : sentence.startOffsetInEl;
-          const start = baseOffset + activeBoundary.charOffset;
-          const end = Math.min(start + activeBoundary.charLength, textNode.textContent?.length || 0);
-
-          if (start <= end && end <= (textNode.textContent?.length || 0)) {
-            wRange.setStart(textNode, start);
-            wRange.setEnd(textNode, end);
-            if ('highlights' in CSS) {
-              const highlight = new (window as any).Highlight(wRange);
-              (CSS as any).highlights.set('edge-tts-highlight', highlight);
-            }
-          }
-        } catch (_) {}
-      }
-    }, 25);
+    lastHighlightedWord = null;
+    startWordHighlightTick();
 
   } catch (err: any) {
     console.error("Error establishing TTS stream:", err);

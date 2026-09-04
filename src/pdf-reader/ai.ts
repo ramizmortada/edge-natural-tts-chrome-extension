@@ -6,6 +6,16 @@ import { playSentenceAtIndex, stopPlayback, sendPreloads } from './tts';
 
 export async function cleanPageWithGemini(pageText: string): Promise<string> {
   if (!state.geminiApiKey) {
+    try {
+      const stored = await chrome.storage.local.get(['geminiApiKey', 'geminiModel']);
+      if (stored.geminiApiKey) {
+        state.geminiApiKey = String(stored.geminiApiKey);
+        if (stored.geminiModel) state.geminiModel = String(stored.geminiModel);
+      }
+    } catch (_) {}
+  }
+
+  if (!state.geminiApiKey) {
     throw new Error('Gemini API key not found. Please click the ✨ icon to configure your key.');
   }
 
@@ -82,8 +92,19 @@ export async function handlePageAiCleanup(pageNum: number, btn: HTMLElement) {
     if (revertBtn) revertBtn.style.display = 'inline-flex';
 
   } catch (err: any) {
-    console.error('Error cleaning page text:', err);
-    alert(`AI Cleaning failed: ${err.message || err.toString()}`);
+    const errorMsg = err.message || err.toString();
+    const isKeyError = errorMsg.toLowerCase().includes('key');
+    if (isKeyError) {
+      console.warn('AI Cleaning Notice:', errorMsg);
+    } else {
+      console.error('Error cleaning page text:', err);
+    }
+    window.dispatchEvent(new CustomEvent('ai-error', {
+      detail: {
+        message: errorMsg,
+        isKeyError
+      }
+    }));
     btn.innerHTML = `<span class="ai-badge">✨ AI Clean</span>`;
     btn.style.pointerEvents = 'auto';
   }

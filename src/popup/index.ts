@@ -191,20 +191,20 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Load cached or trigger gentle update check
   chrome.storage.local.get(["updateInfo", "dismissedVersion"], (data) => {
-    applyUpdateInfo(data.updateInfo, data.dismissedVersion);
+    applyUpdateInfo(data.updateInfo, data.dismissedVersion as string | undefined);
     // Gentle check: try background worker first, fallback to direct fetch
     chrome.runtime.sendMessage({ type: "CHECK_FOR_UPDATES", force: false }, async (res) => {
       if (chrome.runtime.lastError || !res) {
         const directRes = await fetchUpdateDirectly();
         if (directRes) {
           chrome.storage.local.get(["dismissedVersion"], (d) => {
-            applyUpdateInfo(directRes, d.dismissedVersion);
+            applyUpdateInfo(directRes, d.dismissedVersion as string | undefined);
           });
         }
         return;
       }
       chrome.storage.local.get(["dismissedVersion"], (d) => {
-        applyUpdateInfo(res, d.dismissedVersion);
+        applyUpdateInfo(res, d.dismissedVersion as string | undefined);
       });
     });
   });

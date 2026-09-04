@@ -1,7 +1,7 @@
 /// <reference types="chrome" />
 import { dom } from '../dom';
 import { state } from '../state';
-import { StoredDoc } from '../types';
+import { StoredDoc, SentenceItem } from '../types';
 import { readerDB, getSavedCleanedDoc } from '../db';
 import { showLoading, hideLoading, setViewMode, highlightActiveSidebarPage, jumpToPage, escapeHtml, renderRecentFilesUI } from '../ui';
 import { handlePageAiCleanup, revertPageText } from '../ai';
@@ -171,6 +171,7 @@ export async function renderGenericDocumentToReader(title: string, sections: { p
   if (dom.dropZone) dom.dropZone.style.display = 'none';
   if (dom.navControls) dom.navControls.style.display = 'flex';
   setViewMode('reader');
+  window.dispatchEvent(new CustomEvent('doc-loaded', { detail: { title, totalPages: sections.length } }));
 
   const savedCleanedPages = await getSavedCleanedDoc(state.currentDocTitle);
 

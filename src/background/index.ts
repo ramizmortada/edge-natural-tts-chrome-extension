@@ -46,7 +46,7 @@ async function checkForUpdates(force = false): Promise<any> {
     const now = Date.now();
 
     // Cooldown unless forced: 1 hour minimum
-    if (!force && stored.lastUpdateCheck && (now - stored.lastUpdateCheck < 60 * 60 * 1000)) {
+    if (!force && stored.lastUpdateCheck && (now - Number(stored.lastUpdateCheck) < 60 * 60 * 1000)) {
       if (stored.updateInfo) {
         return stored.updateInfo;
       }

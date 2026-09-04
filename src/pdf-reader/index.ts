@@ -3,7 +3,7 @@ import { dom, hoverPlayButton, PLAY_SVG, PAUSE_SVG } from './dom';
 import { state } from './state';
 import { readerDB, exportCleanedDocument } from './db';
 import { openAiModal, closeAiModal, revertPageText } from './ai';
-import { playSentenceAtIndex, pausePlayback, stopPlayback, createRangeForSentence, clearSentenceHover, closeHostSetupModal } from './tts';
+import { playSentenceAtIndex, pausePlayback, resumePlayback, stopPlayback, createRangeForSentence, clearSentenceHover, closeHostSetupModal } from './tts';
 import {
   showLoading,
   hideLoading,
@@ -373,16 +373,7 @@ if (dom.ttsPlayBtn) {
     if (state.isPlaying) {
       pausePlayback();
     } else if (state.isPaused && state.activeSentenceIndex >= 0) {
-      if (state.activePort) {
-        try {
-          state.activePort.postMessage({ type: "PLAY" });
-        } catch (_) {}
-      }
-      chrome.runtime.sendMessage({ target: "offscreen", type: "PLAY" }).catch(()=>{});
-      state.isPaused = false;
-      state.isPlaying = true;
-      if (dom.ttsPlayBtn) dom.ttsPlayBtn.classList.add('playing');
-      if (dom.ttsPlayIcon) dom.ttsPlayIcon.innerHTML = `<rect x="6" y="4" width="4" height="16"></rect><rect x="14" y="4" width="4" height="16"></rect>`;
+      resumePlayback();
     } else {
       if (state.activeSentenceIndex >= 0 && state.activeSentenceIndex < state.allSentences.length) {
         playSentenceAtIndex(state.activeSentenceIndex);

@@ -1,0 +1,389 @@
+@import "tailwindcss";
+
+@layer base {
+  :root {
+    --background: #090d16;
+    --foreground: #f8fafc;
+    --card: #0f172a;
+    --card-foreground: #f8fafc;
+    --popover: #0f172a;
+    --popover-foreground: #f8fafc;
+    --primary: #3b82f6;
+    --primary-foreground: #ffffff;
+    --secondary: #1e293b;
+    --secondary-foreground: #f8fafc;
+    --muted: #1e293b;
+    --muted-foreground: #94a3b8;
+    --accent: #1e293b;
+    --accent-foreground: #f8fafc;
+    --destructive: #ef4444;
+    --destructive-foreground: #ffffff;
+    --border: rgba(255, 255, 255, 0.1);
+    --input: rgba(255, 255, 255, 0.15);
+    --ring: #3b82f6;
+    --radius: 0.5rem;
+    --radius-md: 0.5rem;
+
+    --brand-blue: #3b82f6;
+    --brand-blue-hover: #2563eb;
+    --brand-glow: rgba(59, 130, 246, 0.35);
+  }
+
+  html, body, #root {
+    background-color: var(--background);
+    color: var(--foreground);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+    height: 100vh;
+    max-height: 100vh;
+    width: 100vw;
+    max-width: 100vw;
+    position: fixed;
+    inset: 0;
+  }
+}
+
+/* Custom Scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.25);
+}
+
+/* Reader Typography & Header Themes */
+.theme-dark {
+  --reader-bg: #090d16;
+  --reader-text: #f1f5f9;
+  --reader-muted: #64748b;
+  --reader-card: #0f172a;
+  --header-bg: rgba(9, 13, 22, 0.96);
+  --header-border: rgba(255, 255, 255, 0.08);
+  --header-text: #f8fafc;
+  --header-muted: #94a3b8;
+  --header-pill-bg: rgba(15, 23, 42, 0.9);
+  --header-pill-border: rgba(255, 255, 255, 0.1);
+}
+.theme-dark-sepia {
+  --reader-bg: #181512;
+  --reader-text: #e6dcce;
+  --reader-muted: #8c8273;
+  --reader-card: #221e1a;
+  --header-bg: rgba(24, 21, 18, 0.96);
+  --header-border: rgba(255, 255, 255, 0.08);
+  --header-text: #e6dcce;
+  --header-muted: #a39585;
+  --header-pill-bg: rgba(34, 30, 26, 0.9);
+  --header-pill-border: rgba(255, 255, 255, 0.1);
+}
+.theme-sepia {
+  --reader-bg: #f7f1e3;
+  --reader-text: #34281e;
+  --reader-muted: #7c6d5f;
+  --reader-card: #efe8d5;
+  --header-bg: rgba(247, 241, 227, 0.96);
+  --header-border: rgba(52, 40, 30, 0.15);
+  --header-text: #34281e;
+  --header-muted: #7c6d5f;
+  --header-pill-bg: rgba(239, 232, 213, 0.9);
+  --header-pill-border: rgba(52, 40, 30, 0.18);
+}
+.theme-light {
+  --reader-bg: #ffffff;
+  --reader-text: #0f172a;
+  --reader-muted: #64748b;
+  --reader-card: #f8fafc;
+  --header-bg: rgba(255, 255, 255, 0.96);
+  --header-border: rgba(0, 0, 0, 0.08);
+  --header-text: #0f172a;
+  --header-muted: #64748b;
+  --header-pill-bg: rgba(241, 245, 249, 0.95);
+  --header-pill-border: rgba(0, 0, 0, 0.1);
+}
+
+.reader-header-theme {
+  background-color: var(--header-bg, #090d16);
+  border-color: var(--header-border, rgba(255, 255, 255, 0.08));
+  color: var(--header-text, #f8fafc);
+  transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+}
+
+.reader-pill-theme {
+  background-color: var(--header-pill-bg, rgba(15, 23, 42, 0.9));
+  border-color: var(--header-pill-border, rgba(255, 255, 255, 0.1));
+  color: var(--header-text, #f8fafc);
+}
+
+.reader-book-container {
+  background-color: var(--reader-bg, #090d16);
+  color: var(--reader-text, #f1f5f9);
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+/* Font Families */
+.font-sans {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+}
+.font-serif {
+  font-family: "Charter", "Bitstream Charter", "Sitka Text", "Cambria", Georgia, serif;
+}
+.font-mono {
+  font-family: "JetBrains Mono", "Fira Code", Consolas, Menlo, Monaco, monospace;
+}
+
+/* Sentence & Word Highlighting */
+.reader-paragraph {
+  line-height: 1.8;
+  margin-bottom: 1.5em;
+}
+
+.reader-sentence {
+  display: inline;
+  padding: 1px 2px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+.reader-sentence:hover {
+  background-color: rgba(59, 130, 246, 0.15);
+}
+.reader-sentence.active-tts {
+  background-color: rgba(59, 130, 246, 0.14);
+  border-radius: 4px;
+}
+
+.reader-sentence mark.highlight {
+  background: #2563eb;
+  color: #ffffff;
+  border-radius: 3px;
+  padding: 1px 3px;
+  box-shadow: 0 1px 6px rgba(59, 130, 246, 0.4);
+}
+
+/* PDF Page Canvas Viewport */
+.pdf-page-wrapper {
+  position: relative;
+  margin: 16px auto;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5), 0 1px 3px rgba(0, 0, 0, 0.3);
+  background: white;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.pdf-page-canvas {
+  display: block;
+}
+
+.pdf-text-layer {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  overflow: hidden;
+  opacity: 0.2;
+  line-height: 1.0;
+}
+
+.pdf-text-layer span {
+  color: transparent;
+  position: absolute;
+  white-space: pre;
+  cursor: text;
+  transform-origin: 0% 0%;
+}
+
+/* CSS Highlights API for word & sentence audio tracking */
+::highlight(edge-tts-highlight) {
+  background-color: #2563eb;
+  color: #ffffff;
+}
+::highlight(aura-word-active) {
+  background-color: #2563eb;
+  color: #ffffff;
+}
+
+::highlight(aura-sentence-hover) {
+  background-color: rgba(59, 130, 246, 0.2);
+}
+::highlight(aura-sentence-active) {
+  background-color: rgba(59, 130, 246, 0.14);
+}
+
+#edge-tts-hover-play {
+  position: absolute;
+  z-index: 1000;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.15s ease, transform 0.1s ease;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: #3b82f6;
+  color: white;
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  cursor: pointer;
+}
+#edge-tts-hover-play:hover {
+  transform: scale(1.1);
+  background: #2563eb;
+}
+
+/* Reader Page Block, Divider & AI Cleanup Buttons */
+.reader-page-block {
+  position: relative;
+  margin-bottom: 44px;
+}
+
+.reader-page-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin: 40px 0 20px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+  user-select: none;
+}
+
+.theme-light .reader-page-header {
+  border-bottom-color: rgba(0, 0, 0, 0.1);
+}
+.theme-sepia .reader-page-header {
+  border-bottom-color: rgba(0, 0, 0, 0.12);
+}
+
+.page-header-left {
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #94a3b8;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.theme-light .page-header-left {
+  color: #64748b;
+}
+.theme-sepia .page-header-left {
+  color: #7c6d5f;
+}
+
+.page-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.page-ai-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 12px;
+  font-size: 11px;
+  font-weight: 600;
+  border-radius: 8px;
+  background: rgba(59, 130, 246, 0.15);
+  color: #60a5fa;
+  border: 1px solid rgba(59, 130, 246, 0.35);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  outline: none;
+}
+.page-ai-btn:hover {
+  background: rgba(59, 130, 246, 0.28);
+  border-color: rgba(59, 130, 246, 0.6);
+  color: #93c5fd;
+  transform: translateY(-1px);
+}
+.page-ai-btn.loading {
+  opacity: 0.7;
+  cursor: wait;
+}
+
+.page-revert-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  font-size: 11px;
+  font-weight: 500;
+  border-radius: 8px;
+  background: #1e293b;
+  color: #94a3b8;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.page-revert-btn:hover {
+  background: #334155;
+  color: #f8fafc;
+}
+
+.ai-badge {
+  font-size: 11px;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+/* Sidebar Page Items */
+.sidebar-page-item {
+  padding: 8px 10px;
+  border-radius: 8px;
+  background-color: #0f172a;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  user-select: none;
+  margin-bottom: 6px;
+}
+.sidebar-page-item:hover {
+  background-color: #1e293b;
+  border-color: rgba(59, 130, 246, 0.4);
+}
+.sidebar-page-item.active {
+  background-color: rgba(59, 130, 246, 0.18);
+  border-color: #3b82f6;
+}
+.spi-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 4px;
+}
+.spi-badge {
+  font-size: 10px;
+  font-weight: 700;
+  color: #3b82f6;
+  background-color: rgba(59, 130, 246, 0.15);
+  padding: 1px 6px;
+  border-radius: 4px;
+}
+.spi-words {
+  font-size: 10px;
+  color: #64748b;
+}
+.spi-snippet {
+  font-size: 12px;
+  color: #94a3b8;
+  line-height: 1.35;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
