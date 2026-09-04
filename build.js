@@ -8,6 +8,21 @@ async function build() {
   fs.rmSync('out', { recursive: true, force: true });
   fs.mkdirSync('out', { recursive: true });
 
+  console.log("Generating extension icons from emerald logo.png...");
+  try {
+    const sharp = require('sharp');
+    fs.mkdirSync('public/icons', { recursive: true });
+    const iconSizes = [16, 32, 48, 128];
+    for (const s of iconSizes) {
+      await sharp('public/logo.png')
+        .resize(s, s, { fit: 'contain', background: { r: 0, g: 0, b: 0, alpha: 0 } })
+        .png()
+        .toFile(`public/icons/icon-${s}.png`);
+    }
+  } catch (err) {
+    console.warn("Could not generate icons with sharp:", err.message);
+  }
+
   let start = Date.now();
   console.log("Copying public files...");
   fs.cpSync('public', 'out', { recursive: true });

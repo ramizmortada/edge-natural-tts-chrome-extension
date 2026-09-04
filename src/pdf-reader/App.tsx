@@ -451,6 +451,18 @@ export function App() {
     return `${days}d ago`;
   };
 
+  const isDarkTheme = currentTheme === 'dark' || currentTheme === 'dark-sepia';
+
+  useEffect(() => {
+    if (isDarkTheme) {
+      document.documentElement.classList.add('dark');
+      document.documentElement.classList.remove('light');
+    } else {
+      document.documentElement.classList.remove('dark');
+      document.documentElement.classList.add('light');
+    }
+  }, [isDarkTheme]);
+
   return (
     <div className={`fixed inset-0 flex flex-col overflow-hidden reader-book-container theme-${currentTheme}`}>
       {/* Hidden File Inputs */}
@@ -483,7 +495,7 @@ export function App() {
               className="mr-1 h-8 gap-1.5 px-2.5 rounded-lg opacity-80 hover:opacity-100"
               title="Return to Library Homepage"
             >
-              <ArrowLeft className="size-4 text-blue-500" />
+              <ArrowLeft className="size-4 text-emerald-500" />
               <span className="font-semibold text-xs">Library</span>
             </Button>
           )}
@@ -493,8 +505,8 @@ export function App() {
             onClick={goToHome}
             title="ReadFlow Library"
           >
-            <img src="logo.png" alt="ReadFlow" className="size-6 rounded-md object-cover shadow group-hover:scale-105 transition-transform" />
-            <span className="font-bold text-sm tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-blue-500 to-blue-400">
+            <img src="logo.png" alt="ReadFlow" className="size-6 rounded-md object-contain shadow group-hover:scale-105 transition-transform" />
+            <span className="font-bold text-sm tracking-tight text-emerald-500 group-hover:text-emerald-400 transition-colors">
               ReadFlow
             </span>
           </div>
@@ -579,7 +591,7 @@ export function App() {
                   variant="outline"
                   size="sm"
                   className={`h-9 px-2.5 reader-pill-theme border rounded-lg font-serif font-bold text-sm shadow-sm transition-colors ${
-                    showAppearance ? 'border-blue-500 text-blue-500' : ''
+                    showAppearance ? 'border-emerald-500 text-emerald-500' : ''
                   }`}
                   onClick={() => setShowAppearance(!showAppearance)}
                   title="Text Appearance & Theme (Aa)"
@@ -607,7 +619,7 @@ export function App() {
                               variant={currentTheme === t.id ? 'default' : 'outline'}
                               size="sm"
                               className={`h-8 justify-start text-xs gap-2 ${
-                                currentTheme === t.id ? 'bg-blue-600 text-white border-blue-500' : 'reader-pill-theme border opacity-90'
+                                currentTheme === t.id ? 'bg-emerald-600 text-white border-emerald-500' : 'reader-pill-theme border opacity-90'
                               }`}
                               onClick={() => handleThemeChange(t.id)}
                             >
@@ -650,8 +662,8 @@ export function App() {
                       </div>
                       <button
                         type="button"
-                        className={`w-full h-8 px-2.5 reader-pill-theme border rounded-lg text-xs font-medium flex items-center justify-between shadow-sm transition-colors hover:border-blue-500/50 cursor-pointer ${
-                          showFontMenu ? 'border-blue-500 text-blue-500' : ''
+                        className={`w-full h-8 px-2.5 reader-pill-theme border rounded-lg text-xs font-medium flex items-center justify-between shadow-sm transition-colors hover:border-emerald-500/50 cursor-pointer ${
+                          showFontMenu ? 'border-emerald-500 text-emerald-500' : ''
                         }`}
                         onClick={() => setShowFontMenu(!showFontMenu)}
                         title="Select Reading Font Style"
@@ -673,7 +685,7 @@ export function App() {
                                 type="button"
                                 className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs transition-colors cursor-pointer text-left ${
                                   isSelected
-                                    ? 'bg-blue-600/15 text-blue-500 font-semibold border border-blue-500/30'
+                                    ? 'bg-emerald-600/15 text-emerald-500 font-semibold border border-emerald-500/30'
                                     : 'hover:bg-black/5 dark:hover:bg-white/5 opacity-85 hover:opacity-100'
                                 }`}
                                 onClick={() => {
@@ -685,7 +697,7 @@ export function App() {
                                   <span className={`font-medium ${f.fontClass}`}>{f.name}</span>
                                   <span className="text-[10px] opacity-60">({f.desc})</span>
                                 </div>
-                                {isSelected && <Check className="size-3.5 text-blue-500 shrink-0" />}
+                                {isSelected && <Check className="size-3.5 text-emerald-500 shrink-0" />}
                               </button>
                             );
                           })}
@@ -701,8 +713,8 @@ export function App() {
                 <Button
                   variant="outline"
                   size="sm"
-                  className={`h-9 px-3 reader-pill-theme border rounded-lg text-xs font-medium gap-2 shadow-sm transition-colors hover:border-blue-500/50 flex items-center justify-center ${
-                    showVoiceMenu ? 'border-blue-500 text-blue-500' : ''
+                  className={`h-9 px-3 reader-pill-theme border rounded-lg text-xs font-medium gap-2 shadow-sm transition-colors hover:border-emerald-500/50 flex items-center justify-center ${
+                    showVoiceMenu ? 'border-emerald-500 text-emerald-500' : ''
                   }`}
                   onClick={() => setShowVoiceMenu(!showVoiceMenu)}
                   title="Select Edge Neural Voice"
@@ -728,7 +740,7 @@ export function App() {
                           type="button"
                           className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs transition-colors cursor-pointer text-left ${
                             isSelected
-                              ? 'bg-blue-600/15 text-blue-500 font-semibold border border-blue-500/30'
+                              ? 'bg-emerald-600/15 text-emerald-500 font-semibold border border-emerald-500/30'
                               : 'hover:bg-black/5 dark:hover:bg-white/5 opacity-85 hover:opacity-100'
                           }`}
                           onClick={() => {
@@ -745,7 +757,7 @@ export function App() {
                               <span className="text-[10px] opacity-60 leading-tight">{v.gender} &bull; {v.region}</span>
                             </div>
                           </div>
-                          {isSelected && <Check className="size-3.5 text-blue-500 shrink-0" />}
+                          {isSelected && <Check className="size-3.5 text-emerald-500 shrink-0" />}
                         </button>
                       );
                     })}
@@ -775,7 +787,7 @@ export function App() {
                   step="5"
                   value={rate}
                   onChange={(e) => handleRateChange(parseInt(e.target.value, 10))}
-                  className="w-14 accent-blue-500 cursor-pointer h-1.5"
+                  className="w-14 accent-emerald-500 cursor-pointer h-1.5"
                 />
 
                 <Button
@@ -788,7 +800,7 @@ export function App() {
                   <Plus className="size-3.5" />
                 </Button>
 
-                <Badge variant="secondary" className="font-mono text-[11px] px-1.5 py-0 h-5 reader-pill-theme border text-blue-500 font-bold">
+                <Badge variant="secondary" className="font-mono text-[11px] px-1.5 py-0 h-5 reader-pill-theme border text-emerald-500 font-bold">
                   {rate >= 0 ? `+${rate}%` : `${rate}%`}
                 </Badge>
               </div>
@@ -797,7 +809,7 @@ export function App() {
               <Button
                 variant={isAutoScroll ? 'secondary' : 'ghost'}
                 size="icon"
-                className={`size-8 rounded-lg ${isAutoScroll ? 'bg-blue-600/20 text-blue-500 border border-blue-500/30' : 'opacity-70 hover:opacity-100'}`}
+                className={`size-8 rounded-lg ${isAutoScroll ? 'bg-emerald-600/20 text-emerald-500 border border-emerald-500/30' : 'opacity-70 hover:opacity-100'}`}
                 onClick={() => {
                   const next = !isAutoScroll;
                   setIsAutoScroll(next);
@@ -814,8 +826,8 @@ export function App() {
                 size="sm"
                 className={`h-9 px-2.5 reader-pill-theme border rounded-lg shadow-sm transition-colors flex items-center justify-center ${
                   isAiModalOpen || Boolean(geminiKey)
-                    ? 'border-blue-500 text-blue-500'
-                    : 'opacity-70 hover:opacity-100 hover:text-blue-500'
+                    ? 'border-emerald-500 text-emerald-500'
+                    : 'opacity-70 hover:opacity-100 hover:text-emerald-500'
                 }`}
                 onClick={() => setIsAiModalOpen(true)}
                 title="Gemini AI OCR Text Cleaner Settings"
@@ -838,7 +850,7 @@ export function App() {
                 <Button
                   variant="default"
                   size="icon"
-                  className="size-9 rounded-full bg-blue-600 hover:bg-blue-500 text-white shadow-md p-0 active:scale-95 transition-transform"
+                  className="size-9 rounded-full bg-emerald-600 hover:bg-emerald-500 text-white shadow-md p-0 active:scale-95 transition-transform"
                   onClick={handlePlayToggle}
                   title={isPlaying ? "Pause Playback" : "Start Playback"}
                 >
@@ -876,7 +888,7 @@ export function App() {
               <Button
                 variant="default"
                 size="sm"
-                className="bg-blue-600 hover:bg-blue-500 text-white gap-1.5 shadow rounded-lg h-8"
+                className="bg-emerald-600 hover:bg-emerald-500 text-white gap-1.5 shadow rounded-lg h-8"
                 onClick={() => headerFileInputRef.current?.click()}
               >
                 <Upload className="size-4" />
@@ -902,7 +914,7 @@ export function App() {
             {/* Hero Banner */}
             <div className="flex flex-col gap-2">
               <div className="flex items-center gap-2">
-                <Badge variant="default" className="bg-blue-600/20 text-blue-400 border-blue-500/30">
+                <Badge variant="default" className="bg-emerald-600/20 text-emerald-400 border-emerald-500/30">
                   ReadFlow Library
                 </Badge>
               </div>
@@ -919,13 +931,13 @@ export function App() {
             <Card
               className={`border-2 border-dashed transition-all cursor-pointer ${
                 isDragging
-                  ? 'border-blue-500 bg-blue-950/20 shadow-xl ring-2 ring-blue-500/30'
+                  ? 'border-emerald-500 bg-emerald-950/20 shadow-xl ring-2 ring-emerald-500/30'
                   : 'border-slate-800 bg-slate-900/60 hover:border-slate-700 hover:bg-slate-900/90'
               }`}
               onClick={() => homeFileInputRef.current?.click()}
             >
               <CardContent className="flex flex-col items-center justify-center text-center p-8 gap-4">
-                <div className="size-14 rounded-2xl bg-blue-600/10 border border-blue-500/20 flex items-center justify-center text-blue-400 shadow-inner">
+                <div className="size-14 rounded-2xl bg-emerald-600/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400 shadow-inner">
                   <Upload className="size-7" />
                 </div>
                 <div className="flex flex-col gap-1">
@@ -937,7 +949,7 @@ export function App() {
                   </p>
                 </div>
 
-                <Button variant="default" size="sm" className="bg-blue-600 hover:bg-blue-500 text-white gap-2 mt-1">
+                <Button variant="default" size="sm" className="bg-emerald-600 hover:bg-emerald-500 text-white gap-2 mt-1">
                   <FileText className="size-4" />
                   Browse Computer Files
                 </Button>
@@ -985,7 +997,7 @@ export function App() {
                     return (
                       <Card
                         key={doc.id}
-                        className="group hover:border-blue-500/50 hover:bg-slate-900 transition-all cursor-pointer shadow-md flex flex-col justify-between"
+                        className="group hover:border-emerald-500/50 hover:bg-slate-900 transition-all cursor-pointer shadow-md flex flex-col justify-between"
                         onClick={() => handleOpenStored(doc)}
                       >
                         <CardHeader className="pb-3">
@@ -998,7 +1010,7 @@ export function App() {
                               {formatTimeAgo(doc.lastOpened)}
                             </span>
                           </div>
-                          <CardTitle className="text-sm font-semibold truncate text-slate-100 group-hover:text-blue-400 transition-colors" title={doc.name}>
+                          <CardTitle className="text-sm font-semibold truncate text-slate-100 group-hover:text-emerald-400 transition-colors" title={doc.name}>
                             {doc.name}
                           </CardTitle>
                           <CardDescription className="text-xs text-slate-400 flex items-center gap-2 mt-1">
@@ -1009,7 +1021,7 @@ export function App() {
                         </CardHeader>
 
                         <CardFooter className="pt-0 flex items-center justify-between border-t border-slate-800/60 p-3 bg-slate-950/40">
-                          <span className="text-xs font-medium text-blue-400 group-hover:underline flex items-center gap-1">
+                          <span className="text-xs font-medium text-emerald-400 group-hover:underline flex items-center gap-1">
                             <BookOpen className="size-3.5" />
                             Resume Reading
                           </span>
@@ -1100,7 +1112,7 @@ export function App() {
               id="loading-indicator"
               className="absolute inset-0 z-50 bg-black/60 backdrop-blur-sm hidden flex-col items-center justify-center gap-3"
             >
-              <div className="size-8 rounded-full border-2 border-blue-500 border-t-transparent animate-spin" />
+              <div className="size-8 rounded-full border-2 border-emerald-500 border-t-transparent animate-spin" />
               <p id="loading-text" className="text-xs font-semibold">
                 Loading document...
               </p>
@@ -1145,7 +1157,7 @@ export function App() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2.5">
-              <Sparkles className="size-5 text-blue-400 shrink-0" />
+              <Sparkles className="size-5 text-emerald-400 shrink-0" />
               <span>Gemini AI Text Cleaner</span>
             </DialogTitle>
             <DialogDescription>
@@ -1173,7 +1185,7 @@ export function App() {
                 </button>
               </div>
               <span className="text-[11px] text-slate-400">
-                Get a free API key at <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noreferrer" className="text-blue-400 underline">Google AI Studio</a>.
+                Get a free API key at <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noreferrer" className="text-emerald-400 underline">Google AI Studio</a>.
               </span>
             </div>
 
@@ -1181,10 +1193,10 @@ export function App() {
               <label className="text-xs font-semibold uppercase text-slate-300">AI Model</label>
               <div className="flex items-center justify-between px-3 py-2 rounded-lg bg-slate-900/90 border border-slate-800 text-xs select-none">
                 <div className="flex items-center gap-2">
-                  <span className="font-mono font-semibold text-blue-400">{geminiModel || 'gemini-3.1-flash-lite'}</span>
+                  <span className="font-mono font-semibold text-emerald-400">{geminiModel || 'gemini-3.1-flash-lite'}</span>
                   <span className="text-[10px] text-slate-500 font-mono">v1beta</span>
                 </div>
-                <Badge variant="secondary" className="text-[10px] bg-blue-950/60 text-blue-400 border border-blue-500/20 px-1.5 py-0 h-5">
+                <Badge variant="secondary" className="text-[10px] bg-emerald-950/60 text-emerald-400 border border-emerald-500/20 px-1.5 py-0 h-5">
                   Default
                 </Badge>
               </div>
@@ -1198,7 +1210,7 @@ export function App() {
             <Button variant="ghost" onClick={() => setIsAiModalOpen(false)}>
               Cancel
             </Button>
-            <Button variant="default" className="bg-blue-600 hover:bg-blue-500 text-white" onClick={handleSaveAiSettings}>
+            <Button variant="default" className="bg-emerald-600 hover:bg-emerald-500 text-white" onClick={handleSaveAiSettings}>
               Save Settings
             </Button>
           </DialogFooter>
@@ -1210,7 +1222,7 @@ export function App() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2.5">
-              <Volume2 className="size-5 text-blue-400 shrink-0" />
+              <Volume2 className="size-5 text-emerald-400 shrink-0" />
               <span>Voice Host Setup Required</span>
             </DialogTitle>
             <DialogDescription>
@@ -1222,11 +1234,11 @@ export function App() {
             <div><strong>1.</strong> Open your unzipped ReadFlow directory.</div>
             <div><strong>2.</strong> Open the <code>native-host</code> folder.</div>
             <div><strong>3.</strong> Double-click <strong><code>install.bat</code></strong>.</div>
-            <div className="text-slate-400 mt-1">Requires Node.js from <a href="https://nodejs.org" target="_blank" rel="noreferrer" className="text-blue-400 underline">nodejs.org</a>.</div>
+            <div className="text-slate-400 mt-1">Requires Node.js from <a href="https://nodejs.org" target="_blank" rel="noreferrer" className="text-emerald-400 underline">nodejs.org</a>.</div>
           </div>
 
           <DialogFooter>
-            <Button variant="default" className="bg-blue-600 hover:bg-blue-500 text-white" onClick={() => setIsHostModalOpen(false)}>
+            <Button variant="default" className="bg-emerald-600 hover:bg-emerald-500 text-white" onClick={() => setIsHostModalOpen(false)}>
               Got It
             </Button>
           </DialogFooter>
@@ -1244,16 +1256,16 @@ export function App() {
               <Sparkles className="size-5 shrink-0 text-amber-400" />
               <span>AI Cleaning Notice</span>
             </AlertDialogTitle>
-            <AlertDialogDescription>
+            <DialogDescription>
               {aiAlert.message}
-            </AlertDialogDescription>
+            </DialogDescription>
           </AlertDialogHeader>
 
           <AlertDialogFooter>
             <AlertDialogCancel>Dismiss</AlertDialogCancel>
             {aiAlert.isKeyError && (
               <AlertDialogAction
-                className="bg-blue-600 hover:bg-blue-500 text-white"
+                className="bg-emerald-600 hover:bg-emerald-500 text-white"
                 onClick={() => {
                   setAiAlert((prev) => ({ ...prev, isOpen: false }));
                   setIsAiModalOpen(true);

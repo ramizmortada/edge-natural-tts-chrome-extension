@@ -47,6 +47,8 @@
     {
       "resources": [
         "logo.png",
+        "logodark.png",
+        "logolight.png",
         "icons/*",
         "pdf.worker.min.mjs",
         "pdf-reader.html",

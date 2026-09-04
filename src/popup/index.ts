@@ -25,9 +25,9 @@ document.addEventListener('DOMContentLoaded', () => {
     
     if (isIgnored) {
       toggleSiteBtn.textContent = `Enable on ${currentDomain}`;
-      toggleSiteBtn.style.background = '#3b82f6';
+      toggleSiteBtn.style.background = '#10b981';
       toggleSiteBtn.style.color = '#fff';
-      toggleSiteBtn.style.border = '1px solid #3b82f6';
+      toggleSiteBtn.style.border = '1px solid #10b981';
     } else {
       toggleSiteBtn.textContent = `Disable on ${currentDomain}`;
       toggleSiteBtn.style.background = '#f8fafc';
@@ -35,6 +35,25 @@ document.addEventListener('DOMContentLoaded', () => {
       toggleSiteBtn.style.border = '1px solid #e2e8f0';
     }
   }
+
+  function applyTheme(theme?: string) {
+    const isLight = theme === 'light' || theme === 'sepia' || (!theme && window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches);
+    const logoEl = document.getElementById('app-logo') as HTMLImageElement | null;
+    const faviconEl = document.getElementById('popup-favicon') as HTMLLinkElement | null;
+    if (logoEl) logoEl.src = 'logo.png';
+    if (faviconEl) faviconEl.href = 'logo.png';
+    if (isLight) {
+      document.body.classList.add('light-theme');
+    } else {
+      document.body.classList.remove('light-theme');
+    }
+  }
+
+  chrome.storage.onChanged.addListener((changes, area) => {
+    if (area === 'local' && changes.pdfTheme) {
+      applyTheme(changes.pdfTheme.newValue);
+    }
+  });
 
   chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
     if (tabs[0] && tabs[0].url) {
@@ -48,7 +67,7 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     }
 
-    chrome.storage.local.get(["voice", "rate", "ignoredSites"], (result: Record<string, any>) => {
+    chrome.storage.local.get(["voice", "rate", "ignoredSites", "pdfTheme"], (result: Record<string, any>) => {
       if (result.voice) {
         voiceSelect.value = String(result.voice);
       }
@@ -65,6 +84,7 @@ document.addEventListener('DOMContentLoaded', () => {
         isIgnored = ignoredSites.includes(currentDomain);
       }
       updateButtonState();
+      applyTheme(result.pdfTheme);
     });
   });
 
