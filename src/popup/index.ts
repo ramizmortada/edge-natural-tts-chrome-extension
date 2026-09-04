@@ -1,8 +1,74 @@
+import { createElement, Check, ChevronDown, Minus, Plus } from 'lucide';
+
+interface VoiceOption {
+  id: string;
+  name: string;
+  gender: 'Female' | 'Male';
+  region: string;
+}
+
+const VOICES: VoiceOption[] = [
+  { id: 'en-US-AriaNeural', name: 'Aria', gender: 'Female', region: 'US' },
+  { id: 'en-US-GuyNeural', name: 'Guy', gender: 'Male', region: 'US' },
+  { id: 'en-GB-SoniaNeural', name: 'Sonia', gender: 'Female', region: 'UK' },
+  { id: 'en-GB-RyanNeural', name: 'Ryan', gender: 'Male', region: 'UK' },
+  { id: 'en-AU-NatashaNeural', name: 'Natasha', gender: 'Female', region: 'AU' },
+  { id: 'en-AU-WilliamNeural', name: 'William', gender: 'Male', region: 'AU' },
+];
+
+interface SpeedPreset {
+  rate: number;
+  label: string;
+}
+
+const SPEED_PRESETS: SpeedPreset[] = [
+  { rate: -50, label: '0.5x' },
+  { rate: -25, label: '0.75x' },
+  { rate: 0, label: '1.0x (Normal)' },
+  { rate: 25, label: '1.25x' },
+  { rate: 50, label: '1.5x' },
+  { rate: 75, label: '1.75x' },
+  { rate: 100, label: '2.0x' },
+];
+
 document.addEventListener('DOMContentLoaded', () => {
-  const voiceSelect = document.getElementById('voice-select') as HTMLSelectElement;
-  const rateSlider = document.getElementById('rate-slider') as HTMLInputElement;
-  const speedLabel = document.getElementById('speed-label') as HTMLSpanElement;
+  // Voice DOM elements
+  const voiceDropdownContainer = document.getElementById('voice-dropdown-container');
+  const voiceSelectBtn = document.getElementById('voice-select-btn') as HTMLButtonElement | null;
+  const selectedVoiceName = document.getElementById('selected-voice-name');
+  const selectedVoiceRegion = document.getElementById('selected-voice-region');
+  const voiceMenu = document.getElementById('voice-menu');
+  const voiceOptionsList = document.getElementById('voice-options-list');
+
+  // Speed DOM elements
+  const speedClusterContainer = document.getElementById('speed-cluster-container');
+  const speedMinusBtn = document.getElementById('speed-minus-btn') as HTMLButtonElement | null;
+  const speedPlusBtn = document.getElementById('speed-plus-btn') as HTMLButtonElement | null;
+  const speedDropdownBtn = document.getElementById('speed-dropdown-btn') as HTMLButtonElement | null;
+  const speedLabel = document.getElementById('speed-label');
+  const speedMenu = document.getElementById('speed-menu');
+  const speedOptionsList = document.getElementById('speed-options-list');
+
   const toggleSiteBtn = document.getElementById('toggle-site-btn') as HTMLButtonElement;
+
+  // Replace static popup icons with official Lucide SVGs
+  const voiceChevron = document.getElementById('voice-chevron');
+  if (voiceChevron) {
+    voiceChevron.replaceWith(createElement(ChevronDown, { id: 'voice-chevron', class: 'dropdown-chevron', width: 12, height: 12 }));
+  }
+  const speedChevron = document.getElementById('speed-chevron');
+  if (speedChevron) {
+    speedChevron.replaceWith(createElement(ChevronDown, { id: 'speed-chevron', class: 'dropdown-chevron', width: 10, height: 10 }));
+  }
+  if (speedMinusBtn) {
+    speedMinusBtn.innerHTML = createElement(Minus, { width: 13, height: 13 }).outerHTML;
+  }
+  if (speedPlusBtn) {
+    speedPlusBtn.innerHTML = createElement(Plus, { width: 13, height: 13 }).outerHTML;
+  }
+
+  let currentVoice = 'en-US-AriaNeural';
+  let currentRate = 0;
 
   function formatSpeed(ratePercent: number): string {
     const mult = 1 + ratePercent / 100;
@@ -11,9 +77,135 @@ document.addEventListener('DOMContentLoaded', () => {
     return `${str}x`;
   }
 
-  function updateSpeedLabel(val: number) {
-    speedLabel.textContent = formatSpeed(val);
+  const checkIconSvg = createElement(Check, { width: 13, height: 13, 'stroke-width': 2.5, color: '#10b981', style: 'flex-shrink:0;' }).outerHTML;
+
+  function renderVoiceUI() {
+    const vObj = VOICES.find(v => v.id === currentVoice) || VOICES[0];
+    if (selectedVoiceName) selectedVoiceName.textContent = vObj.name;
+    if (selectedVoiceRegion) selectedVoiceRegion.textContent = vObj.region;
+
+    if (!voiceOptionsList) return;
+    voiceOptionsList.innerHTML = '';
+    VOICES.forEach(v => {
+      const isSelected = v.id === currentVoice;
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = `dropdown-item ${isSelected ? 'selected' : ''}`;
+      btn.innerHTML = `
+        <div class="voice-item-left">
+          <span class="voice-region-badge">${v.region}</span>
+          <div class="voice-item-info">
+            <span class="voice-item-title">${v.name}</span>
+            <span class="voice-item-sub">${v.gender} &bull; ${v.region}</span>
+          </div>
+        </div>
+        ${isSelected ? checkIconSvg : ''}
+      `;
+      btn.addEventListener('click', () => {
+        currentVoice = v.id;
+        renderVoiceUI();
+        closeVoiceMenu();
+        chrome.storage.local.set({ voice: v.id });
+      });
+      voiceOptionsList.appendChild(btn);
+    });
   }
+
+  function renderSpeedUI() {
+    if (speedLabel) speedLabel.textContent = formatSpeed(currentRate);
+
+    if (!speedOptionsList) return;
+    speedOptionsList.innerHTML = '';
+    SPEED_PRESETS.forEach(p => {
+      const isSelected = p.rate === currentRate;
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = `dropdown-item ${isSelected ? 'selected' : ''}`;
+      btn.innerHTML = `
+        <span style="font-family: monospace; font-variant-numeric: tabular-nums;">${p.label}</span>
+        ${isSelected ? checkIconSvg : ''}
+      `;
+      btn.addEventListener('click', () => {
+        setRate(p.rate);
+        closeSpeedMenu();
+      });
+      speedOptionsList.appendChild(btn);
+    });
+  }
+
+  function setRate(rateVal: number) {
+    const clamped = Math.max(-50, Math.min(100, rateVal));
+    currentRate = clamped;
+    renderSpeedUI();
+    chrome.storage.local.set({ rate: [currentRate] });
+  }
+
+  function stepSpeed(delta: number) {
+    setRate(currentRate + delta);
+  }
+
+  function closeVoiceMenu() {
+    if (voiceMenu) voiceMenu.style.display = 'none';
+    if (voiceSelectBtn) voiceSelectBtn.classList.remove('open');
+  }
+
+  function closeSpeedMenu() {
+    if (speedMenu) speedMenu.style.display = 'none';
+    if (speedDropdownBtn) speedDropdownBtn.classList.remove('open');
+  }
+
+  if (voiceSelectBtn && voiceMenu) {
+    voiceSelectBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const isOpen = voiceMenu.style.display === 'flex';
+      if (isOpen) {
+        closeVoiceMenu();
+      } else {
+        closeSpeedMenu();
+        voiceMenu.style.display = 'flex';
+        voiceSelectBtn.classList.add('open');
+      }
+    });
+  }
+
+  if (speedDropdownBtn && speedMenu) {
+    speedDropdownBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const isOpen = speedMenu.style.display === 'flex';
+      if (isOpen) {
+        closeSpeedMenu();
+      } else {
+        closeVoiceMenu();
+        speedMenu.style.display = 'flex';
+        speedDropdownBtn.classList.add('open');
+      }
+    });
+  }
+
+  if (speedMinusBtn) {
+    speedMinusBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      stepSpeed(-5);
+    });
+  }
+
+  if (speedPlusBtn) {
+    speedPlusBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      stepSpeed(5);
+    });
+  }
+
+  // Close menus on outside click
+  document.addEventListener('click', (e) => {
+    const target = e.target as Node;
+    if (voiceDropdownContainer && !voiceDropdownContainer.contains(target)) {
+      closeVoiceMenu();
+    }
+    if (speedClusterContainer && !speedClusterContainer.contains(target)) {
+      closeSpeedMenu();
+    }
+  });
 
   let currentDomain = '';
   let ignoredSites: string[] = [];
@@ -37,14 +229,14 @@ document.addEventListener('DOMContentLoaded', () => {
       toggleSiteBtn.style.border = '1px solid #10b981';
     } else {
       toggleSiteBtn.textContent = `Disable on ${currentDomain}`;
-      toggleSiteBtn.style.background = '#f8fafc';
-      toggleSiteBtn.style.color = '#0f172a';
-      toggleSiteBtn.style.border = '1px solid #e2e8f0';
+      toggleSiteBtn.style.background = '';
+      toggleSiteBtn.style.color = '';
+      toggleSiteBtn.style.border = '';
     }
   }
 
   function applyTheme(theme?: string) {
-    const isLight = theme === 'light' || theme === 'sepia' || (!theme && window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches);
+    const isLight = theme === 'light' || (!theme && window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches);
     const logoEl = document.getElementById('app-logo') as HTMLImageElement | null;
     const faviconEl = document.getElementById('popup-favicon') as HTMLLinkElement | null;
     if (logoEl) logoEl.src = 'logo.png';
@@ -57,8 +249,18 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   chrome.storage.onChanged.addListener((changes, area) => {
-    if (area === 'local' && changes.pdfTheme) {
-      applyTheme(changes.pdfTheme.newValue);
+    if (area === 'local') {
+      if (changes.pdfTheme) {
+        applyTheme(changes.pdfTheme.newValue);
+      }
+      if (changes.voice && changes.voice.newValue !== currentVoice) {
+        currentVoice = String(changes.voice.newValue);
+        renderVoiceUI();
+      }
+      if (changes.rate && Array.isArray(changes.rate.newValue)) {
+        currentRate = changes.rate.newValue[0];
+        renderSpeedUI();
+      }
     }
   });
 
@@ -76,13 +278,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
     chrome.storage.local.get(["voice", "rate", "ignoredSites", "pdfTheme"], (result: Record<string, any>) => {
       if (result.voice) {
-        voiceSelect.value = String(result.voice);
+        currentVoice = String(result.voice);
       }
       if (result.rate && Array.isArray(result.rate)) {
-        const val = result.rate[0];
-        rateSlider.value = val.toString();
-        updateSpeedLabel(val);
+        currentRate = result.rate[0];
       }
+      renderVoiceUI();
+      renderSpeedUI();
+
       if (result.ignoredSites && Array.isArray(result.ignoredSites)) {
         ignoredSites = result.ignoredSites as string[];
       }
@@ -93,16 +296,6 @@ document.addEventListener('DOMContentLoaded', () => {
       updateButtonState();
       applyTheme(result.pdfTheme);
     });
-  });
-
-  voiceSelect.addEventListener('change', () => {
-    chrome.storage.local.set({ voice: voiceSelect.value });
-  });
-
-  rateSlider.addEventListener('input', () => {
-    const val = parseInt(rateSlider.value, 10);
-    updateSpeedLabel(val);
-    chrome.storage.local.set({ rate: [val] });
   });
 
   toggleSiteBtn.addEventListener('click', () => {
@@ -206,7 +399,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
       if (hasUpdate) {
         chrome.action?.setBadgeText({ text: 'NEW' });
-        chrome.action?.setBadgeBackgroundColor({ color: '#2563eb' });
+        chrome.action?.setBadgeBackgroundColor({ color: '#10b981' });
       }
 
       return updateInfo;

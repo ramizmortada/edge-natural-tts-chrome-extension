@@ -19,10 +19,10 @@ const badgeVariants = cva(
         ghost:
           "hover:bg-muted hover:text-muted-foreground dark:hover:bg-muted/50",
         link: "text-primary underline-offset-4 hover:underline",
-        pdf: "border-red-900/40 bg-red-950/60 text-red-400 font-mono",
-        docx: "border-blue-900/40 bg-blue-950/60 text-blue-400 font-mono",
-        epub: "border-emerald-900/40 bg-emerald-950/60 text-emerald-400 font-mono",
-        txt: "border-purple-900/40 bg-purple-950/60 text-purple-400 font-mono",
+        pdf: "border-red-200 dark:border-red-900/40 bg-red-50 dark:bg-red-950/60 text-red-700 dark:text-red-400 font-mono",
+        docx: "border-blue-200 dark:border-blue-900/40 bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-400 font-mono",
+        epub: "border-emerald-200 dark:border-emerald-900/40 bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-400 font-mono",
+        txt: "border-purple-200 dark:border-purple-900/40 bg-purple-50 dark:bg-purple-950/60 text-purple-700 dark:text-purple-400 font-mono",
       },
     },
     defaultVariants: {

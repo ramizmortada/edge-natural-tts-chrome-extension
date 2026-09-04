@@ -2,7 +2,7 @@
 import { state } from './state';
 import { extractRawText, getNextValidElement, createRangeFromOffset } from './dom-scanner';
 import { clearHighlight } from './highlighter';
-import { playButton, PLAY_SVG, PAUSE_SVG, LOAD_SVG, startSession, stopSession, setPlaying, syncPosition, isExtensionValid } from './floating-ui';
+import { playButton, PLAY_SVG, PAUSE_SVG, LOAD_SVG, startSession, stopSession, setPlaying, syncPosition, isExtensionValid, setPlayButtonIdle, setPlayButtonPlaying, setPlayButtonLoading } from './floating-ui';
 
 export async function handlePlayAction(e: any, forceTarget?: HTMLElement, force = false, retryCount = 0) {
   if (!isExtensionValid()) {
@@ -22,8 +22,7 @@ export async function handlePlayAction(e: any, forceTarget?: HTMLElement, force 
       if (state.activePort) state.activePort.postMessage({ type: "PAUSE" });
       setPlaying(false);
       clearHighlight(false);
-      playButton.innerHTML = PLAY_SVG;
-      playButton.style.background = "#2563eb";
+      setPlayButtonIdle();
       return;
     } else {
       if (state.activePort) {
@@ -41,8 +40,7 @@ export async function handlePlayAction(e: any, forceTarget?: HTMLElement, force 
       state.activePort.postMessage({ type: "PLAY" });
     }
     setPlaying(true);
-    playButton.innerHTML = PAUSE_SVG;
-    playButton.style.background = "#ef4444";
+    setPlayButtonPlaying();
     return;
   }
 
@@ -54,11 +52,7 @@ export async function handlePlayAction(e: any, forceTarget?: HTMLElement, force 
   state.isLoading = true;
   state.activeTarget = targetToPlay;
   startSession();
-  playButton.innerHTML = LOAD_SVG;
-  if (playButton.children[0]) {
-    playButton.children[0].animate([{transform: 'rotate(0deg)'}, {transform: 'rotate(360deg)'}], {duration: 1000, iterations: Infinity});
-  }
-  playButton.style.background = "#475569"; 
+  setPlayButtonLoading();
   clearHighlight();
 
   state.currentAudioTime = 0;
@@ -79,8 +73,7 @@ export async function handlePlayAction(e: any, forceTarget?: HTMLElement, force 
           state.isLoading = false;
           setPlaying(false);
           clearHighlight();
-          playButton.innerHTML = PLAY_SVG;
-          playButton.style.background = "#2563eb";
+          setPlayButtonIdle();
           
           const nextEl = getNextValidElement(state.activeTarget!);
           if (nextEl) {
@@ -160,8 +153,7 @@ export async function handlePlayAction(e: any, forceTarget?: HTMLElement, force 
               isFirstChunk = false;
               state.isLoading = false;
               setPlaying(true);
-              playButton.innerHTML = PAUSE_SVG;
-              playButton.style.background = "#ef4444"; 
+              setPlayButtonPlaying(); 
             }
           } else if (msg.type === "PLAYBACK_ENDED") {
             state.activePort?.onMessage.removeListener(onMsg);

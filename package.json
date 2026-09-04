@@ -16,6 +16,7 @@
     "clsx": "^2.1.1",
     "edge-tts-universal": "^1.4.0",
     "jszip": "^3.10.1",
+    "lucide": "^1.40.0",
     "lucide-react": "^1.18.0",
     "mammoth": "^1.12.1",
     "next": "16.2.9",

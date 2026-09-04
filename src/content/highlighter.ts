@@ -6,12 +6,12 @@ export function injectHighlightStyles() {
   const style = document.createElement("style");
   style.textContent = `
     ::highlight(${state.activeHighlightName}) {
-      background-color: rgba(59, 130, 246, 0.4);
+      background-color: rgba(16, 185, 129, 0.28);
       color: inherit;
       border-radius: 3px;
     }
     ::highlight(${state.sentenceHighlightName}) {
-      background-color: rgba(250, 204, 21, 0.4);
+      background-color: rgba(16, 185, 129, 0.16);
       cursor: pointer;
     }
   `;

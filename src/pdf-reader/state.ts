@@ -7,7 +7,7 @@ export const state = {
   currentScale: 1.25,
   currentFontSize: 18,
   currentFontFamily: 'sans',
-  currentTheme: 'dark-sepia',
+  currentTheme: 'dark',
   currentViewMode: 'reader' as ViewMode,
   pagesData: [] as PageData[],
   isPlaying: false,

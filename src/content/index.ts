@@ -72,6 +72,7 @@ document.addEventListener("mousemove", (e) => {
       state.hoverTimer = null;
     }
     
+    // Only activate sentence hover highlighting when a playback session is active (floating bar is open)
     if (state.activeTarget !== null) {
       handleSentenceHover(e, validEl);
     } else {

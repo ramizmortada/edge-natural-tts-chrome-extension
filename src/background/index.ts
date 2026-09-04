@@ -84,7 +84,7 @@ async function checkForUpdates(force = false): Promise<any> {
 
     if (hasUpdate && stored.dismissedVersion !== updateInfo.latestVersion) {
       await chrome.action.setBadgeText({ text: "NEW" });
-      await chrome.action.setBadgeBackgroundColor({ color: "#2563eb" });
+      await chrome.action.setBadgeBackgroundColor({ color: "#10b981" });
     } else if (!hasUpdate) {
       await chrome.action.setBadgeText({ text: "" });
     }

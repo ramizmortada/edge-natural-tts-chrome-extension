@@ -65,29 +65,45 @@
       <div class="field-header">
         <label>Voice</label>
       </div>
-      <select id="voice-select">
-        <option value="en-US-AriaNeural">Aria (Female)</option>
-        <option value="en-US-GuyNeural">Guy (Male)</option>
-        <option value="en-GB-SoniaNeural">Sonia (Female, UK)</option>
-        <option value="en-GB-RyanNeural">Ryan (Male, UK)</option>
-        <option value="en-AU-NatashaNeural">Natasha (Female, AU)</option>
-        <option value="en-AU-WilliamNeural">William (Male, AU)</option>
-      </select>
+      <div class="custom-dropdown-container" id="voice-dropdown-container">
+        <button type="button" class="custom-select-btn" id="voice-select-btn" title="Select Edge Neural Voice">
+          <span class="voice-btn-name" id="selected-voice-name">Aria</span>
+          <span class="voice-region-badge" id="selected-voice-region">US</span>
+          <svg class="dropdown-chevron" id="voice-chevron" xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+        </button>
+        <div class="custom-dropdown-menu" id="voice-menu" style="display: none;">
+          <div class="dropdown-options-list" id="voice-options-list"></div>
+        </div>
+      </div>
     </div>
 
     <div class="field">
       <div class="field-header">
         <label>Speed</label>
-        <span id="speed-label" class="speed-badge">1.0x</span>
       </div>
-      <input type="range" id="rate-slider" min="-50" max="100" value="0">
+      <div class="speed-cluster-container" id="speed-cluster-container">
+        <button type="button" class="speed-step-btn" id="speed-minus-btn" title="Decrease speed (-0.05x)">
+          <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        </button>
+        <button type="button" class="speed-selector-btn" id="speed-dropdown-btn" title="Select Speed Preset">
+          <span id="speed-label" class="speed-val">1.0x</span>
+          <svg class="dropdown-chevron" id="speed-chevron" xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+        </button>
+        <button type="button" class="speed-step-btn" id="speed-plus-btn" title="Increase speed (+0.05x)">
+          <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        </button>
+
+        <div class="custom-dropdown-menu speed-menu" id="speed-menu" style="display: none;">
+          <div class="dropdown-options-list" id="speed-options-list"></div>
+        </div>
+      </div>
     </div>
 
     <div class="field">
       <div class="field-header">
         <label>Status on this site</label>
       </div>
-      <button id="toggle-site-btn" style="width: 100%; padding: 8px; border-radius: 6px; cursor: pointer; border: 1px solid #e2e8f0; background: #f8fafc; font-family: inherit; font-size: 14px; font-weight: 500; transition: all 0.2s;">Loading...</button>
+      <button id="toggle-site-btn" class="toggle-site-btn">Loading...</button>
     </div>
 
     <div class="field" style="margin-top: 4px;">
