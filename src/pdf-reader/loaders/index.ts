@@ -107,13 +107,71 @@ export async function loadStoredDocument(doc: StoredDoc) {
   }
 }
 
-export function createPageHeader(pNum: number, title?: string): HTMLElement {
+export function calculateDuration(wordCount: number, ratePercent: number = 0): { text: string; seconds: number } {
+  if (!wordCount || wordCount <= 0) return { text: '0s', seconds: 0 };
+  const baseWpm = 160;
+  const multiplier = Math.max(0.2, 1 + ratePercent / 100);
+  const effectiveWpm = baseWpm * multiplier;
+  const totalSeconds = Math.max(1, Math.round((wordCount / effectiveWpm) * 60));
+
+  if (totalSeconds < 60) {
+    return { text: `${totalSeconds}s`, seconds: totalSeconds };
+  }
+  const mins = Math.floor(totalSeconds / 60);
+  const secs = totalSeconds % 60;
+  if (secs === 0) {
+    return { text: `${mins}m`, seconds: totalSeconds };
+  }
+  return { text: `${mins}m ${secs}s`, seconds: totalSeconds };
+}
+
+export function updateAllPageDurations(ratePercent: number) {
+  const blocks = document.querySelectorAll('.reader-page-block');
+  blocks.forEach((block) => {
+    const el = block as HTMLElement;
+    const count = parseInt(el.dataset.wordCount || '0', 10);
+    const durationBadge = el.querySelector('.page-duration-badge') as HTMLElement | null;
+    if (durationBadge && count > 0) {
+      const { text } = calculateDuration(count, ratePercent);
+      const sign = ratePercent >= 0 ? `+${ratePercent}%` : `${ratePercent}%`;
+      durationBadge.style.display = 'inline-flex';
+      durationBadge.innerHTML = `<svg class="size-3 inline shrink-0" xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg><span>${text}</span>`;
+      durationBadge.title = `Estimated reading duration at current speed (${sign})`;
+    }
+  });
+}
+
+export const AI_CLEAN_HTML = `<span class="ai-badge flex items-center gap-1.5"><svg class="size-3.5 inline shrink-0" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/></svg><span>AI Clean</span></span>`;
+
+export const AI_CLEANED_HTML = `<span class="ai-badge flex items-center gap-1.5"><svg class="size-3.5 inline shrink-0 text-emerald-400" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg><span>AI Cleaned</span></span>`;
+
+export const REVERT_HTML = `<span class="flex items-center gap-1"><svg class="size-3 inline shrink-0" xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg><span>Revert</span></span>`;
+
+export function createPageHeader(pNum: number, title?: string, wordCount: number = 0): HTMLElement {
   const pageHeader = document.createElement('div');
   pageHeader.className = 'reader-page-header';
 
   const left = document.createElement('div');
   left.className = 'page-header-left';
-  left.textContent = title ? `${title} (Page ${pNum})` : `Page ${pNum}`;
+
+  const titleSpan = document.createElement('span');
+  titleSpan.className = 'page-header-title';
+  titleSpan.textContent = title ? `${title} (Page ${pNum})` : `Page ${pNum}`;
+  left.appendChild(titleSpan);
+
+  const durationBadge = document.createElement('span');
+  durationBadge.className = 'page-duration-badge';
+  durationBadge.dataset.pageNumber = pNum.toString();
+  if (wordCount > 0) {
+    const curRate = (state.currentRate && state.currentRate[0] !== undefined) ? state.currentRate[0] : 0;
+    const { text } = calculateDuration(wordCount, curRate);
+    const sign = curRate >= 0 ? `+${curRate}%` : `${curRate}%`;
+    durationBadge.innerHTML = `<svg class="size-3 inline shrink-0" xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg><span>${text}</span>`;
+    durationBadge.title = `Estimated reading duration at current speed (${sign})`;
+  } else {
+    durationBadge.style.display = 'none';
+  }
+  left.appendChild(durationBadge);
 
   const actions = document.createElement('div');
   actions.className = 'page-header-actions';
@@ -121,12 +179,12 @@ export function createPageHeader(pNum: number, title?: string): HTMLElement {
   const aiBtn = document.createElement('button');
   aiBtn.className = 'page-ai-btn';
   aiBtn.title = 'Clean OCR & formatting artifacts with Gemini AI (Model: 3.1 Flash Lite)';
-  aiBtn.innerHTML = `<span class="ai-badge">✨ AI Clean</span>`;
+  aiBtn.innerHTML = AI_CLEAN_HTML;
 
   const revertBtn = document.createElement('button');
   revertBtn.className = 'page-revert-btn';
   revertBtn.title = 'Revert to original converted text';
-  revertBtn.textContent = '↺ Revert';
+  revertBtn.innerHTML = REVERT_HTML;
   revertBtn.style.display = 'none';
 
   actions.appendChild(aiBtn);
@@ -189,7 +247,7 @@ export async function renderGenericDocumentToReader(title: string, sections: { p
     sidebarItem.dataset.pageNumber = pNum.toString();
 
     const previewSnippet = parasToRender[0]?.slice(0, 70) || sec.title;
-    const pageWords = parasToRender.reduce((sum, p) => sum + p.split(/\s+/).length, 0);
+    const pageWords = parasToRender.reduce((sum, p) => sum + p.split(/\s+/).filter(Boolean).length, 0);
 
     sidebarItem.innerHTML = `
       <div class="spi-header">
@@ -208,16 +266,17 @@ export async function renderGenericDocumentToReader(title: string, sections: { p
     pageBlock.className = 'reader-page-block';
     pageBlock.id = `reader-page-block-${pNum}`;
     pageBlock.dataset.pageNumber = pNum.toString();
+    pageBlock.dataset.wordCount = pageWords.toString();
 
     if (hasSavedCleaned) {
       pageBlock.dataset.originalParagraphs = JSON.stringify(savedCleanedPages[pNum].original);
     }
 
-    const pageHeader = createPageHeader(pNum, sec.title);
+    const pageHeader = createPageHeader(pNum, sec.title, pageWords);
     if (hasSavedCleaned) {
       const aiBtn = pageHeader.querySelector('.page-ai-btn');
       const revertBtn = pageHeader.querySelector('.page-revert-btn') as HTMLElement;
-      if (aiBtn) aiBtn.innerHTML = `<span class="ai-badge">✨ AI Cleaned</span>`;
+      if (aiBtn) aiBtn.innerHTML = AI_CLEANED_HTML;
       if (revertBtn) revertBtn.style.display = 'inline-flex';
     }
     pageBlock.appendChild(pageHeader);

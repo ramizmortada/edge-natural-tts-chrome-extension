@@ -3,6 +3,7 @@ import { dom } from './dom';
 import { state } from './state';
 import { saveCleanedPageToStorage, removeCleanedPageFromStorage } from './db';
 import { playSentenceAtIndex, stopPlayback, sendPreloads } from './tts';
+import { calculateDuration, AI_CLEAN_HTML, AI_CLEANED_HTML } from './loaders';
 
 export async function cleanPageWithGemini(pageText: string): Promise<string> {
   if (!state.geminiApiKey) {
@@ -16,7 +17,7 @@ export async function cleanPageWithGemini(pageText: string): Promise<string> {
   }
 
   if (!state.geminiApiKey) {
-    throw new Error('Gemini API key not found. Please click the ✨ icon to configure your key.');
+    throw new Error('Gemini API key not found. Please click the Gemini icon to configure your key.');
   }
 
   const chosenModel = state.geminiModel || 'gemini-3.1-flash-lite';
@@ -85,7 +86,7 @@ export async function handlePageAiCleanup(pageNum: number, btn: HTMLElement) {
 
     updatePageBlockParagraphs(pageBlock, pageNum, cleanedParas);
 
-    btn.innerHTML = `<span class="ai-badge">✨ AI Cleaned</span>`;
+    btn.innerHTML = AI_CLEANED_HTML;
     btn.style.pointerEvents = 'auto';
 
     const revertBtn = pageBlock.querySelector('.page-revert-btn') as HTMLElement;
@@ -105,7 +106,7 @@ export async function handlePageAiCleanup(pageNum: number, btn: HTMLElement) {
         isKeyError
       }
     }));
-    btn.innerHTML = `<span class="ai-badge">✨ AI Clean</span>`;
+    btn.innerHTML = AI_CLEAN_HTML;
     btn.style.pointerEvents = 'auto';
   }
 }
@@ -124,7 +125,7 @@ export function revertPageText(pageNum: number) {
 
     const aiBtn = pageBlock.querySelector('.page-ai-btn');
     const revertBtn = pageBlock.querySelector('.page-revert-btn') as HTMLElement;
-    if (aiBtn) aiBtn.innerHTML = `<span class="ai-badge">✨ AI Clean</span>`;
+    if (aiBtn) aiBtn.innerHTML = AI_CLEAN_HTML;
     if (revertBtn) revertBtn.style.display = 'none';
   } catch (e) {
     console.error('Error reverting text:', e);
@@ -205,6 +206,25 @@ export function updatePageBlockParagraphs(pageBlock: HTMLElement, pageNum: numbe
   const beforeSentences = state.allSentences.filter(s => s.pageNumber < pageNum);
   const afterSentences = state.allSentences.filter(s => s.pageNumber > pageNum);
   state.allSentences = [...beforeSentences, ...newSentences, ...afterSentences];
+
+  // Recalculate word count and duration badge for this page
+  const newWordCount = paras.reduce((sum, p) => sum + p.split(/\s+/).filter(Boolean).length, 0);
+  pageBlock.dataset.wordCount = newWordCount.toString();
+  const durationBadge = pageBlock.querySelector('.page-duration-badge') as HTMLElement | null;
+  if (durationBadge && newWordCount > 0) {
+    const curRate = (state.currentRate && state.currentRate[0] !== undefined) ? state.currentRate[0] : 0;
+    const { text } = calculateDuration(newWordCount, curRate);
+    const sign = curRate >= 0 ? `+${curRate}%` : `${curRate}%`;
+    durationBadge.style.display = 'inline-flex';
+    durationBadge.innerHTML = `<svg class="size-3 inline shrink-0" xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg><span>${text}</span>`;
+    durationBadge.title = `Estimated reading duration at current speed (${sign})`;
+  }
+
+  const sidebarItem = document.getElementById(`spi-${pageNum}`);
+  if (sidebarItem) {
+    const spiWords = sidebarItem.querySelector('.spi-words');
+    if (spiWords) spiWords.textContent = `${newWordCount} words`;
+  }
 
   // If audio is playing another page, restore the activeSentenceIndex and refresh preloads for the new cleaned text!
   if (currentActiveSentence && !isCurrentSentenceOnThisPage) {

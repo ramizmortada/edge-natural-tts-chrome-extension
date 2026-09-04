@@ -133,10 +133,10 @@ export async function renderRecentFilesUI() {
         const item = document.createElement('div');
         item.className = 'recent-file-item';
         const formattedDate = new Date(doc.lastOpened).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
-        const iconSymbol = doc.type === 'pdf' ? '📄' : (doc.type === 'docx' ? '📝' : (doc.type === 'epub' ? '📚' : '📄'));
+        const docSvg = `<svg class="size-4 inline shrink-0" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/></svg>`;
         item.innerHTML = `
           <div class="recent-file-left" title="${escapeHtml(doc.name)}">
-            <span class="recent-icon">${iconSymbol}</span>
+            <span class="recent-icon">${docSvg}</span>
             <div class="recent-meta">
               <span class="recent-name">${escapeHtml(doc.name)}</span>
               <span class="recent-sub">${(doc.size / 1024).toFixed(0)} KB • Page ${doc.lastPage || 1} • ${formattedDate}</span>
@@ -170,11 +170,11 @@ export async function renderRecentFilesUI() {
       docs.slice(0, 6).forEach(doc => {
         const card = document.createElement('div');
         card.className = 'recent-drop-card';
-        const iconSymbol = doc.type === 'pdf' ? '📄' : (doc.type === 'docx' ? '📝' : (doc.type === 'epub' ? '📚' : '📄'));
+        const docSvg = `<svg class="size-4 inline shrink-0" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/></svg>`;
         const timeAgo = formatTimeAgo(doc.lastOpened);
 
         card.innerHTML = `
-          <span class="recent-card-icon">${iconSymbol}</span>
+          <span class="recent-card-icon">${docSvg}</span>
           <div class="recent-card-info">
             <div class="recent-card-name" title="${escapeHtml(doc.name)}">${escapeHtml(doc.name)}</div>
             <div class="recent-card-details">Page ${doc.lastPage || 1} • ${timeAgo}</div>

@@ -17,7 +17,7 @@ import {
   closeAllPopovers,
   renderRecentFilesUI
 } from './ui';
-import { loadDocumentFile, loadStoredDocument } from './loaders';
+import { loadDocumentFile, loadStoredDocument, updateAllPageDurations } from './loaders';
 
 // Popover Handlers
 if (dom.libraryMenuBtn && dom.libraryMenu) {
@@ -429,6 +429,7 @@ if (dom.rateSlider) {
     state.currentRate = [val];
     updateSpeedLabel(val);
     chrome.storage.local.set({ rate: [val] });
+    updateAllPageDurations(val);
   });
 }
 

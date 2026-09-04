@@ -129,8 +129,8 @@ export function exportCleanedDocument() {
   let fullText = '';
 
   for (const block of pageBlocks) {
-    const headerLeft = block.querySelector('.page-header-left');
-    const headerText = headerLeft?.textContent?.trim() || `Page ${block.dataset.pageNumber}`;
+    const headerTitle = block.querySelector('.page-header-title');
+    const headerText = headerTitle?.textContent?.trim() || `Page ${block.dataset.pageNumber}`;
     const paragraphs = Array.from(block.querySelectorAll('p.reader-paragraph'))
       .map(p => p.textContent?.trim())
       .filter(Boolean);

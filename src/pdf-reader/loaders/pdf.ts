@@ -6,7 +6,7 @@ import { PageData, SentenceItem } from '../types';
 import { showLoading, hideLoading, setViewMode, highlightActiveSidebarPage, jumpToPage } from '../ui';
 import { getSavedCleanedDoc } from '../db';
 import { playSentenceAtIndex, stopPlayback } from '../tts';
-import { createPageHeader } from './index';
+import { createPageHeader, AI_CLEANED_HTML } from './index';
 
 try {
   GlobalWorkerOptions.workerSrc = chrome.runtime.getURL('pdf.worker.min.mjs');
@@ -281,7 +281,7 @@ export async function buildReaderMode(doc: any) {
       sidebarItem.dataset.pageNumber = pNum.toString();
 
       const previewSnippet = parasToRender[0]?.slice(0, 70) || `Page ${pNum}`;
-      const pageWords = parasToRender.reduce((sum, p) => sum + p.split(/\s+/).length, 0);
+      const pageWords = parasToRender.reduce((sum, p) => sum + p.split(/\s+/).filter(Boolean).length, 0);
 
       sidebarItem.innerHTML = `
         <div class="spi-header">
@@ -300,16 +300,17 @@ export async function buildReaderMode(doc: any) {
       pageBlock.className = 'reader-page-block';
       pageBlock.id = `reader-page-block-${pNum}`;
       pageBlock.dataset.pageNumber = pNum.toString();
+      pageBlock.dataset.wordCount = pageWords.toString();
 
       if (hasSavedCleaned) {
         pageBlock.dataset.originalParagraphs = JSON.stringify(savedCleanedPages[pNum].original);
       }
 
-      const pageHeader = createPageHeader(pNum);
+      const pageHeader = createPageHeader(pNum, undefined, pageWords);
       if (hasSavedCleaned) {
         const aiBtn = pageHeader.querySelector('.page-ai-btn');
         const revertBtn = pageHeader.querySelector('.page-revert-btn') as HTMLElement;
-        if (aiBtn) aiBtn.innerHTML = `<span class="ai-badge">✨ AI Cleaned</span>`;
+        if (aiBtn) aiBtn.innerHTML = AI_CLEANED_HTML;
         if (revertBtn) revertBtn.style.display = 'inline-flex';
       }
       pageBlock.appendChild(pageHeader);

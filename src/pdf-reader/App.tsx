@@ -24,7 +24,13 @@ import {
   EyeOff,
   Volume2,
   CheckCircle2,
-  ArrowDownCircle
+  ArrowDownCircle,
+  ChevronDown,
+  Check,
+  Moon,
+  Coffee,
+  Scroll,
+  Sun
 } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
@@ -47,9 +53,38 @@ import { state } from './state';
 import { dom } from './dom';
 import { readerDB } from './db';
 import { StoredDoc } from './types';
-import { loadDocumentFile, loadStoredDocument } from './loaders';
+import { loadDocumentFile, loadStoredDocument, updateAllPageDurations } from './loaders';
 import { jumpToPage, toggleSidebar, updateReaderTypography } from './ui';
 import { playSentenceAtIndex, pausePlayback, resumePlayback, stopPlayback } from './tts';
+
+interface VoiceOption {
+  id: string;
+  name: string;
+  gender: 'Female' | 'Male';
+  region: string;
+}
+
+const VOICES: VoiceOption[] = [
+  { id: 'en-US-AriaNeural', name: 'Aria', gender: 'Female', region: 'US' },
+  { id: 'en-US-GuyNeural', name: 'Guy', gender: 'Male', region: 'US' },
+  { id: 'en-GB-SoniaNeural', name: 'Sonia', gender: 'Female', region: 'UK' },
+  { id: 'en-GB-RyanNeural', name: 'Ryan', gender: 'Male', region: 'UK' },
+  { id: 'en-AU-NatashaNeural', name: 'Natasha', gender: 'Female', region: 'AU' },
+  { id: 'en-AU-WilliamNeural', name: 'William', gender: 'Male', region: 'AU' },
+];
+
+interface FontOption {
+  id: string;
+  name: string;
+  desc: string;
+  fontClass: string;
+}
+
+const FONT_OPTIONS: FontOption[] = [
+  { id: 'sans', name: 'Sans-Serif', desc: 'Modern', fontClass: 'font-sans' },
+  { id: 'serif', name: 'Serif', desc: 'Book', fontClass: 'font-serif' },
+  { id: 'mono', name: 'Monospace', desc: 'Code', fontClass: 'font-mono' },
+];
 
 export function App() {
   const [view, setView] = useState<'home' | 'reader'>('home');
@@ -81,9 +116,16 @@ export function App() {
   const [isDragging, setIsDragging] = useState<boolean>(false);
   const [sidebarQuery, setSidebarQuery] = useState<string>('');
 
+  const [showVoiceMenu, setShowVoiceMenu] = useState<boolean>(false);
+  const [showFontMenu, setShowFontMenu] = useState<boolean>(false);
+  const selectedVoiceObj = VOICES.find((v) => v.id === voice) || VOICES[0];
+  const selectedFontObj = FONT_OPTIONS.find((f) => f.id === currentFontFamily) || FONT_OPTIONS[0];
+
   const homeFileInputRef = useRef<HTMLInputElement>(null);
   const headerFileInputRef = useRef<HTMLInputElement>(null);
   const appearanceRef = useRef<HTMLDivElement>(null);
+  const voiceMenuRef = useRef<HTMLDivElement>(null);
+  const fontMenuRef = useRef<HTMLDivElement>(null);
 
   // Close appearance dropdown on outside click
   useEffect(() => {
@@ -99,6 +141,36 @@ export function App() {
       };
     }
   }, [showAppearance]);
+
+  // Close voice dropdown on outside click
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (voiceMenuRef.current && !voiceMenuRef.current.contains(event.target as Node)) {
+        setShowVoiceMenu(false);
+      }
+    }
+    if (showVoiceMenu) {
+      document.addEventListener('mousedown', handleClickOutside, true);
+      return () => {
+        document.removeEventListener('mousedown', handleClickOutside, true);
+      };
+    }
+  }, [showVoiceMenu]);
+
+  // Close font dropdown on outside click
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (fontMenuRef.current && !fontMenuRef.current.contains(event.target as Node)) {
+        setShowFontMenu(false);
+      }
+    }
+    if (showFontMenu) {
+      document.addEventListener('mousedown', handleClickOutside, true);
+      return () => {
+        document.removeEventListener('mousedown', handleClickOutside, true);
+      };
+    }
+  }, [showFontMenu]);
 
   // Load Initial Settings & Recents
   useEffect(() => {
@@ -243,6 +315,7 @@ export function App() {
     setRate(clamped);
     state.currentRate = [clamped];
     chrome.storage.local.set({ rate: [clamped] });
+    updateAllPageDurations(clamped);
   };
 
   const stepSpeed = (delta: number) => {
@@ -515,31 +588,34 @@ export function App() {
                 </Button>
 
                 {showAppearance && (
-                  <div className="absolute right-0 top-full mt-2 w-64 p-3.5 reader-pill-theme border rounded-xl shadow-2xl z-50 flex flex-col gap-3 animate-in fade-in zoom-in-95">
+                  <div className="absolute right-0 top-full mt-2 w-64 p-3.5 reader-popover-theme border rounded-xl shadow-2xl z-50 flex flex-col gap-3 animate-in fade-in zoom-in-95">
                     <div>
                       <div className="text-[11px] font-bold uppercase tracking-wider opacity-60 mb-1.5">
                         Reading Theme
                       </div>
                       <div className="grid grid-cols-2 gap-1.5">
                         {[
-                          { id: 'dark', label: 'Dark', icon: '🌙' },
-                          { id: 'dark-sepia', label: 'Dark Sepia', icon: '☕' },
-                          { id: 'sepia', label: 'Sepia', icon: '📜' },
-                          { id: 'light', label: 'Light', icon: '☀️' },
-                        ].map((t) => (
-                          <Button
-                            key={t.id}
-                            variant={currentTheme === t.id ? 'default' : 'outline'}
-                            size="sm"
-                            className={`h-8 justify-start text-xs gap-1.5 ${
-                              currentTheme === t.id ? 'bg-blue-600 text-white border-blue-500' : 'reader-pill-theme border opacity-90'
-                            }`}
-                            onClick={() => handleThemeChange(t.id)}
-                          >
-                            <span>{t.icon}</span>
-                            <span>{t.label}</span>
-                          </Button>
-                        ))}
+                          { id: 'dark', label: 'Dark', icon: Moon },
+                          { id: 'dark-sepia', label: 'Dark Sepia', icon: Coffee },
+                          { id: 'sepia', label: 'Sepia', icon: Scroll },
+                          { id: 'light', label: 'Light', icon: Sun },
+                        ].map((t) => {
+                          const IconComp = t.icon;
+                          return (
+                            <Button
+                              key={t.id}
+                              variant={currentTheme === t.id ? 'default' : 'outline'}
+                              size="sm"
+                              className={`h-8 justify-start text-xs gap-2 ${
+                                currentTheme === t.id ? 'bg-blue-600 text-white border-blue-500' : 'reader-pill-theme border opacity-90'
+                              }`}
+                              onClick={() => handleThemeChange(t.id)}
+                            >
+                              <IconComp className="size-3.5 shrink-0" />
+                              <span>{t.label}</span>
+                            </Button>
+                          );
+                        })}
                       </div>
                     </div>
 
@@ -568,38 +644,114 @@ export function App() {
                       </div>
                     </div>
 
-                    <div>
+                    <div className="relative" ref={fontMenuRef}>
                       <div className="text-[11px] font-bold uppercase tracking-wider opacity-60 mb-1.5">
                         Font Style
                       </div>
-                      <select
-                        value={currentFontFamily}
-                        onChange={(e) => handleFontFamilyChange(e.target.value)}
-                        className="w-full h-8 text-xs reader-pill-theme border rounded-lg px-2 focus:outline-none focus:border-blue-500 cursor-pointer"
+                      <button
+                        type="button"
+                        className={`w-full h-8 px-2.5 reader-pill-theme border rounded-lg text-xs font-medium flex items-center justify-between shadow-sm transition-colors hover:border-blue-500/50 cursor-pointer ${
+                          showFontMenu ? 'border-blue-500 text-blue-500' : ''
+                        }`}
+                        onClick={() => setShowFontMenu(!showFontMenu)}
+                        title="Select Reading Font Style"
                       >
-                        <option value="sans">Sans-Serif (Modern)</option>
-                        <option value="serif">Serif (Book)</option>
-                        <option value="mono">Monospace (Code)</option>
-                      </select>
+                        <div className="flex items-center gap-1.5">
+                          <span className={`font-semibold ${selectedFontObj.fontClass}`}>{selectedFontObj.name}</span>
+                          <span className="text-[10px] opacity-60 font-normal">({selectedFontObj.desc})</span>
+                        </div>
+                        <ChevronDown className={`size-3 opacity-60 transition-transform duration-200 shrink-0 ${showFontMenu ? 'rotate-180' : ''}`} />
+                      </button>
+
+                      {showFontMenu && (
+                        <div className="absolute left-0 right-0 top-full mt-1.5 reader-popover-theme border rounded-xl shadow-2xl z-50 p-1 flex flex-col gap-0.5 animate-in fade-in zoom-in-95">
+                          {FONT_OPTIONS.map((f) => {
+                            const isSelected = currentFontFamily === f.id;
+                            return (
+                              <button
+                                key={f.id}
+                                type="button"
+                                className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs transition-colors cursor-pointer text-left ${
+                                  isSelected
+                                    ? 'bg-blue-600/15 text-blue-500 font-semibold border border-blue-500/30'
+                                    : 'hover:bg-black/5 dark:hover:bg-white/5 opacity-85 hover:opacity-100'
+                                }`}
+                                onClick={() => {
+                                  handleFontFamilyChange(f.id);
+                                  setShowFontMenu(false);
+                                }}
+                              >
+                                <div className="flex items-center gap-2">
+                                  <span className={`font-medium ${f.fontClass}`}>{f.name}</span>
+                                  <span className="text-[10px] opacity-60">({f.desc})</span>
+                                </div>
+                                {isSelected && <Check className="size-3.5 text-blue-500 shrink-0" />}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      )}
                     </div>
                   </div>
                 )}
               </div>
 
-              {/* Voice Selector */}
-              <select
-                value={voice}
-                onChange={(e) => handleVoiceChange(e.target.value)}
-                className="h-9 text-xs reader-pill-theme border rounded-lg px-2.5 max-w-[130px] truncate focus:outline-none focus:border-blue-500 cursor-pointer font-medium"
-                title="Select Edge Neural Voice"
-              >
-                <option value="en-US-AriaNeural">Aria (US)</option>
-                <option value="en-US-GuyNeural">Guy (US)</option>
-                <option value="en-GB-SoniaNeural">Sonia (UK)</option>
-                <option value="en-GB-RyanNeural">Ryan (UK)</option>
-                <option value="en-AU-NatashaNeural">Natasha (AU)</option>
-                <option value="en-AU-WilliamNeural">William (AU)</option>
-              </select>
+              {/* Custom Voice Selector Dropdown */}
+              <div className="relative" ref={voiceMenuRef}>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className={`h-9 px-3 reader-pill-theme border rounded-lg text-xs font-medium gap-2 shadow-sm transition-colors hover:border-blue-500/50 flex items-center justify-center ${
+                    showVoiceMenu ? 'border-blue-500 text-blue-500' : ''
+                  }`}
+                  onClick={() => setShowVoiceMenu(!showVoiceMenu)}
+                  title="Select Edge Neural Voice"
+                >
+                  <span className="font-semibold leading-none">{selectedVoiceObj.name}</span>
+                  <span className="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded bg-black/10 dark:bg-white/10 opacity-80 leading-none">
+                    {selectedVoiceObj.region}
+                  </span>
+                  <ChevronDown className={`size-3 opacity-60 transition-transform duration-200 shrink-0 ${showVoiceMenu ? 'rotate-180' : ''}`} />
+                </Button>
+
+                {showVoiceMenu && (
+                  <div className="absolute left-0 top-full mt-2 w-56 p-1.5 reader-popover-theme border rounded-xl shadow-2xl z-50 flex flex-col gap-1 animate-in fade-in zoom-in-95">
+                    <div className="px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider opacity-60 flex items-center justify-between border-b border-current/10 mb-0.5">
+                      <span>Neural Voice</span>
+                      <span className="text-[9px] font-normal normal-case opacity-75">Edge TTS</span>
+                    </div>
+                    {VOICES.map((v) => {
+                      const isSelected = voice === v.id;
+                      return (
+                        <button
+                          key={v.id}
+                          type="button"
+                          className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs transition-colors cursor-pointer text-left ${
+                            isSelected
+                              ? 'bg-blue-600/15 text-blue-500 font-semibold border border-blue-500/30'
+                              : 'hover:bg-black/5 dark:hover:bg-white/5 opacity-85 hover:opacity-100'
+                          }`}
+                          onClick={() => {
+                            handleVoiceChange(v.id);
+                            setShowVoiceMenu(false);
+                          }}
+                        >
+                          <div className="flex items-center gap-2">
+                            <span className="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded bg-black/10 dark:bg-white/10 border border-current/15 select-none shrink-0">
+                              {v.region}
+                            </span>
+                            <div className="flex flex-col">
+                              <span className="font-medium text-xs leading-tight">{v.name}</span>
+                              <span className="text-[10px] opacity-60 leading-tight">{v.gender} &bull; {v.region}</span>
+                            </div>
+                          </div>
+                          {isSelected && <Check className="size-3.5 text-blue-500 shrink-0" />}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
 
               {/* Reading Speed Cluster with - / + Stepper Arrows */}
               <div
@@ -658,9 +810,13 @@ export function App() {
               </Button>
 
               <Button
-                variant="ghost"
-                size="icon"
-                className="size-8 text-blue-500 hover:opacity-80 rounded-lg"
+                variant="outline"
+                size="sm"
+                className={`h-9 px-2.5 reader-pill-theme border rounded-lg shadow-sm transition-colors flex items-center justify-center ${
+                  isAiModalOpen || Boolean(geminiKey)
+                    ? 'border-blue-500 text-blue-500'
+                    : 'opacity-70 hover:opacity-100 hover:text-blue-500'
+                }`}
                 onClick={() => setIsAiModalOpen(true)}
                 title="Gemini AI OCR Text Cleaner Settings"
               >
@@ -1022,15 +1178,18 @@ export function App() {
             </div>
 
             <div className="flex flex-col gap-1.5">
-              <label className="text-xs font-semibold uppercase text-slate-300">Model Name</label>
-              <Input
-                type="text"
-                value={geminiModel}
-                onChange={(e) => setGeminiModel(e.target.value)}
-                placeholder="gemini-3.1-flash-lite"
-              />
+              <label className="text-xs font-semibold uppercase text-slate-300">AI Model</label>
+              <div className="flex items-center justify-between px-3 py-2 rounded-lg bg-slate-900/90 border border-slate-800 text-xs select-none">
+                <div className="flex items-center gap-2">
+                  <span className="font-mono font-semibold text-blue-400">{geminiModel || 'gemini-3.1-flash-lite'}</span>
+                  <span className="text-[10px] text-slate-500 font-mono">v1beta</span>
+                </div>
+                <Badge variant="secondary" className="text-[10px] bg-blue-950/60 text-blue-400 border border-blue-500/20 px-1.5 py-0 h-5">
+                  Default
+                </Badge>
+              </div>
               <span className="text-[11px] text-slate-400">
-                Recommended: <code>gemini-3.1-flash-lite</code> (fast and lightweight).
+                Uses Google Gemini 3.1 Flash Lite for fast, accurate OCR cleanup and formatting repair.
               </span>
             </div>
           </div>
