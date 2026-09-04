@@ -82,23 +82,34 @@ export async function loadStoredDocument(doc: StoredDoc) {
     const bufferCopy = doc.arrayBuffer.slice(0);
     await loadDocumentFromBuffer(doc.name, doc.type, bufferCopy);
 
-    if (doc.lastScrollTop && doc.lastScrollTop > 0) {
-      setTimeout(() => {
-        if (dom.readerModeView) dom.readerModeView.scrollTop = doc.lastScrollTop;
-        if (doc.lastPage && dom.pageNumInput) {
-          dom.pageNumInput.value = doc.lastPage.toString();
+    // Keep loading screen active until layout and scroll position are positioned
+    await new Promise<void>((resolve) => {
+      requestAnimationFrame(() => {
+        if (doc.lastScrollTop && doc.lastScrollTop > 0) {
+          if (dom.readerModeView) dom.readerModeView.scrollTop = doc.lastScrollTop;
+          if (doc.lastPage && dom.pageNumInput) {
+            dom.pageNumInput.value = doc.lastPage.toString();
+            highlightActiveSidebarPage(doc.lastPage);
+          }
+        } else if (doc.lastPage && doc.lastPage > 1) {
+          const targetBlock = document.getElementById(`reader-page-block-${doc.lastPage}`);
+          if (targetBlock && dom.readerModeView) {
+            targetBlock.scrollIntoView({ behavior: 'instant', block: 'start' });
+          }
+          if (dom.pageNumInput) dom.pageNumInput.value = doc.lastPage.toString();
           highlightActiveSidebarPage(doc.lastPage);
         }
-        setTimeout(() => { state.isRestoringState = false; }, 300);
-      }, 100);
-    } else if (doc.lastPage && doc.lastPage > 1) {
-      setTimeout(() => {
-        jumpToPage(doc.lastPage);
-        setTimeout(() => { state.isRestoringState = false; }, 300);
-      }, 100);
-    } else {
-      setTimeout(() => { state.isRestoringState = false; }, 300);
-    }
+
+        // Let browser paint at the scrolled position before removing loading curtain
+        requestAnimationFrame(() => {
+          setTimeout(() => {
+            hideLoading();
+            state.isRestoringState = false;
+            resolve();
+          }, 60);
+        });
+      });
+    });
   } catch (err: any) {
     state.isRestoringState = false;
     console.error('Error reopening document:', err);
@@ -336,5 +347,7 @@ export async function renderGenericDocumentToReader(title: string, sections: { p
 
   if (dom.readerWordCount) dom.readerWordCount.textContent = `~${totalWordCount.toLocaleString()} words`;
   highlightActiveSidebarPage(1);
-  hideLoading();
+  if (!state.isRestoringState) {
+    hideLoading();
+  }
 }

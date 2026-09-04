@@ -133,11 +133,14 @@ export async function loadPDFFromBuffer(fileName: string, rawBuffer: ArrayBuffer
       }
     }
 
-    hideLoading();
     renderPage(state.pagesData[0]);
     if (state.pagesData[1]) renderPage(state.pagesData[1]);
 
     await buildReaderMode(state.pdfDoc);
+
+    if (!state.isRestoringState) {
+      hideLoading();
+    }
 
   } catch (err: any) {
     console.error('Error loading PDF:', err);

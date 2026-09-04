@@ -264,16 +264,46 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
+  let activePdfUrl = '';
+  let activePdfName = '';
+
+  const openPdfBtn = document.getElementById('open-pdf-btn') as HTMLButtonElement | null;
+
   chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
     if (tabs[0] && tabs[0].url) {
+      const tabUrl = tabs[0].url;
       try {
-        const url = new URL(tabs[0].url);
+        const url = new URL(tabUrl);
         if (url.protocol.startsWith('http')) {
           currentDomain = url.hostname;
         }
+
+        // Check for PDF file (local file:/// or web PDF)
+        const pathname = url.pathname.toLowerCase();
+        if (pathname.endsWith('.pdf') || tabUrl.toLowerCase().endsWith('.pdf') || pathname.includes('.pdf')) {
+          activePdfUrl = tabUrl;
+          const segments = url.pathname.split('/').filter(Boolean);
+          const rawName = segments[segments.length - 1] || 'Document.pdf';
+          try {
+            activePdfName = decodeURIComponent(rawName);
+          } catch (e) {
+            activePdfName = rawName;
+          }
+        }
       } catch (e) {
-        // Invalid URL
+        if (tabUrl.toLowerCase().endsWith('.pdf')) {
+          activePdfUrl = tabUrl;
+          activePdfName = 'Document.pdf';
+        }
       }
+    }
+
+    if (activePdfUrl && openPdfBtn) {
+      const btnSpan = openPdfBtn.querySelector('span');
+      if (btnSpan) {
+        btnSpan.textContent = 'Open in PDF Reader';
+      }
+      openPdfBtn.title = `Import and open "${activePdfName}" in ReadFlow`;
     }
 
     chrome.storage.local.get(["voice", "rate", "ignoredSites", "pdfTheme"], (result: Record<string, any>) => {
@@ -316,10 +346,16 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   });
 
-  const openPdfBtn = document.getElementById('open-pdf-btn') as HTMLButtonElement | null;
   if (openPdfBtn) {
     openPdfBtn.addEventListener('click', () => {
-      chrome.tabs.create({ url: chrome.runtime.getURL('pdf-reader.html') });
+      if (activePdfUrl) {
+        const readerUrl = chrome.runtime.getURL(
+          `pdf-reader.html?importUrl=${encodeURIComponent(activePdfUrl)}&name=${encodeURIComponent(activePdfName)}`
+        );
+        chrome.tabs.create({ url: readerUrl });
+      } else {
+        chrome.tabs.create({ url: chrome.runtime.getURL('pdf-reader.html') });
+      }
     });
   }
 

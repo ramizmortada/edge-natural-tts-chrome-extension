@@ -53,8 +53,8 @@ import { state } from './state';
 import { dom } from './dom';
 import { readerDB } from './db';
 import { StoredDoc } from './types';
-import { loadDocumentFile, loadStoredDocument, updateAllPageDurations } from './loaders';
-import { jumpToPage, toggleSidebar, updateReaderTypography } from './ui';
+import { loadDocumentFile, loadStoredDocument, loadDocumentFromBuffer, updateAllPageDurations } from './loaders';
+import { jumpToPage, toggleSidebar, updateReaderTypography, showLoading, hideLoading } from './ui';
 import { playSentenceAtIndex, pausePlayback, resumePlayback, stopPlayback } from './tts';
 
 interface VoiceOption {
@@ -121,7 +121,6 @@ export function App() {
   const [voice, setVoice] = useState<string>('en-US-AriaNeural');
   const [isSidebarOpen, setIsSidebarOpen] = useState<boolean>(false);
   const [isAutoScroll, setIsAutoScroll] = useState<boolean>(true);
-  const [showAppearance, setShowAppearance] = useState<boolean>(false);
   const [currentTheme, setCurrentTheme] = useState<string>('dark');
   const [currentFontSize, setCurrentFontSize] = useState<number>(18);
   const [currentFontFamily, setCurrentFontFamily] = useState<string>('sans');
@@ -132,6 +131,7 @@ export function App() {
     message: '',
     isKeyError: false,
   });
+  const [fileSchemeAlertOpen, setFileSchemeAlertOpen] = useState<boolean>(false);
   const [geminiKey, setGeminiKey] = useState<string>('');
   const [geminiModel, setGeminiModel] = useState<string>('gemini-3.1-flash-lite');
   const [showKey, setShowKey] = useState<boolean>(false);
@@ -146,25 +146,9 @@ export function App() {
 
   const homeFileInputRef = useRef<HTMLInputElement>(null);
   const headerFileInputRef = useRef<HTMLInputElement>(null);
-  const appearanceRef = useRef<HTMLDivElement>(null);
   const voiceMenuRef = useRef<HTMLDivElement>(null);
   const fontMenuRef = useRef<HTMLDivElement>(null);
   const speedMenuRef = useRef<HTMLDivElement>(null);
-
-  // Close appearance dropdown on outside click
-  useEffect(() => {
-    function handleClickOutside(event: MouseEvent) {
-      if (appearanceRef.current && !appearanceRef.current.contains(event.target as Node)) {
-        setShowAppearance(false);
-      }
-    }
-    if (showAppearance) {
-      document.addEventListener('mousedown', handleClickOutside, true);
-      return () => {
-        document.removeEventListener('mousedown', handleClickOutside, true);
-      };
-    }
-  }, [showAppearance]);
 
   // Close voice dropdown on outside click
   useEffect(() => {
@@ -296,6 +280,20 @@ export function App() {
     window.addEventListener('open-ai-modal', handleOpenAi);
     window.addEventListener('ai-error', handleAiError);
 
+    // Check if opened with importUrl parameter
+    try {
+      const searchParams = new URLSearchParams(window.location.search);
+      const importUrl = searchParams.get('importUrl');
+      const importName = searchParams.get('name') || 'Document.pdf';
+
+      if (importUrl) {
+        window.history.replaceState({}, document.title, window.location.pathname);
+        handleImportFromUrl(importUrl, importName);
+      }
+    } catch (e) {
+      console.warn('Could not parse URL import params:', e);
+    }
+
     return () => {
       window.removeEventListener('doc-loaded', handleDocLoaded);
       window.removeEventListener('page-change', handlePageChange);
@@ -316,17 +314,72 @@ export function App() {
   };
 
   const handleOpenFile = (file: File) => {
+    setView('reader');
+    showLoading(`Loading ${file.name}...`);
     loadDocumentFile(file).then(() => {
-      setView('reader');
       loadRecentDocs();
     });
   };
 
   const handleOpenStored = (doc: StoredDoc) => {
+    setView('reader');
+    showLoading(`Reopening ${doc.name}...`);
     loadStoredDocument(doc).then(() => {
-      setView('reader');
       loadRecentDocs();
     });
+  };
+
+  const handleImportFromUrl = async (url: string, fileName: string) => {
+    setView('reader');
+    showLoading(`Importing ${fileName}...`);
+    try {
+      if (url.startsWith('file:') && (chrome as any).extension?.isAllowedFileSchemeAccess) {
+        const isAllowed = await new Promise<boolean>((resolve) => {
+          (chrome as any).extension.isAllowedFileSchemeAccess(resolve);
+        });
+        if (!isAllowed) {
+          hideLoading();
+          setFileSchemeAlertOpen(true);
+          return;
+        }
+      }
+
+      const response = await fetch(url);
+      if (!response.ok) {
+        throw new Error(`Failed to fetch file (${response.status} ${response.statusText})`);
+      }
+
+      const arrayBuffer = await response.arrayBuffer();
+      const ext = fileName.split('.').pop()?.toLowerCase() || 'pdf';
+
+      const storedDoc: StoredDoc = {
+        id: fileName,
+        name: fileName,
+        type: ext,
+        size: arrayBuffer.byteLength,
+        arrayBuffer: arrayBuffer.slice(0),
+        lastOpened: Date.now(),
+        lastScrollTop: 0,
+        lastPage: 1,
+        lastSentenceIndex: 0,
+        aiEdits: {}
+      };
+
+      await readerDB.saveDoc(storedDoc);
+      chrome.storage.local.set({ last_active_doc_id: fileName });
+      loadRecentDocs();
+
+      await loadDocumentFromBuffer(fileName, ext, arrayBuffer.slice(0));
+      hideLoading();
+    } catch (err: any) {
+      console.error('Failed to import file:', err);
+      hideLoading();
+      if (url.startsWith('file:')) {
+        setFileSchemeAlertOpen(true);
+      } else {
+        alert(`Could not import document: ${err.message || err.toString()}`);
+      }
+    }
   };
 
   const handleDeleteRecent = async (id: string, e: React.MouseEvent) => {
@@ -624,130 +677,88 @@ export function App() {
         <div className="flex items-center gap-2">
           {view === 'reader' ? (
             <>
-              {/* Appearance / Theme Popover (Aa) */}
-              <div className="relative" ref={appearanceRef}>
+              {/* Theme Toggle Button (1-Click) */}
+              <Button
+                variant="outline"
+                size="icon"
+                className="size-9 reader-pill-theme border rounded-lg opacity-80 hover:opacity-100"
+                onClick={() => handleThemeChange(currentTheme === 'light' ? 'dark' : 'light')}
+                title={currentTheme === 'light' ? 'Switch to Dark Mode' : 'Switch to Light Mode'}
+              >
+                {currentTheme === 'light' ? <Moon className="size-4 text-emerald-600" /> : <Sun className="size-4 text-emerald-400" />}
+              </Button>
+
+              {/* Font Style Dropdown */}
+              <div className="relative" ref={fontMenuRef}>
                 <Button
                   variant="outline"
                   size="sm"
-                  className={`h-9 px-2.5 reader-pill-theme border rounded-lg font-serif font-bold text-sm transition-colors ${
-                    showAppearance ? 'border-emerald-500 text-emerald-500' : ''
+                  className={`h-9 px-2.5 reader-pill-theme border rounded-lg text-xs font-medium gap-1.5 transition-colors hover:border-emerald-500/50 flex items-center justify-center ${
+                    showFontMenu ? 'border-emerald-500 text-emerald-500' : ''
                   }`}
-                  onClick={() => setShowAppearance(!showAppearance)}
-                  title="Text Appearance & Theme (Aa)"
+                  onClick={() => setShowFontMenu(!showFontMenu)}
+                  title="Select Reading Font Style"
                 >
-                  Aa
+                  <span className={`font-semibold ${selectedFontObj.fontClass}`}>{selectedFontObj.name}</span>
+                  <ChevronDown className={`size-3 opacity-60 transition-transform duration-200 shrink-0 ${showFontMenu ? 'rotate-180' : ''}`} />
                 </Button>
 
-                {showAppearance && (
-                  <div className="absolute right-0 top-full mt-2 w-64 p-3.5 reader-popover-theme border rounded-xl z-50 flex flex-col gap-3 animate-in fade-in zoom-in-95">
-                    <div>
-                      <div className="text-[11px] font-bold uppercase tracking-wider opacity-60 mb-1.5">
-                        Reading Theme
-                      </div>
-                      <div className="grid grid-cols-2 gap-1.5">
-                        {[
-                          { id: 'dark', label: 'Dark', icon: Moon },
-                          { id: 'light', label: 'Light', icon: Sun },
-                        ].map((t) => {
-                          const IconComp = t.icon;
-                          const isSelected = currentTheme === t.id;
-                          return (
-                            <button
-                              key={t.id}
-                              type="button"
-                              className={`h-9 px-3 flex items-center justify-between text-xs rounded-lg transition-all cursor-pointer border ${
-                                isSelected
-                                  ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 font-bold border-emerald-500/40 ring-1 ring-emerald-500/30'
-                                  : 'reader-pill-theme border hover:bg-black/5 dark:hover:bg-white/5 opacity-75 hover:opacity-100'
-                              }`}
-                              onClick={() => handleThemeChange(t.id)}
-                            >
-                              <div className="flex items-center gap-2">
-                                <IconComp className="size-3.5 shrink-0" />
-                                <span>{t.label}</span>
-                              </div>
-                              {isSelected && <Check className="size-3.5 text-emerald-500 shrink-0" />}
-                            </button>
-                          );
-                        })}
-                      </div>
-                    </div>
-
-                    <div>
-                      <div className="text-[11px] font-bold uppercase tracking-wider opacity-60 mb-1.5">
-                        Font Size
-                      </div>
-                      <div className="flex items-center justify-between reader-pill-theme border rounded-lg p-1">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="size-7 text-xs font-bold hover:bg-black/10 dark:hover:bg-white/10"
-                          onClick={() => handleFontSizeChange(-2)}
+                {showFontMenu && (
+                  <div className="absolute left-0 top-full mt-2 w-44 p-1.5 reader-popover-theme border rounded-xl z-50 flex flex-col gap-0.5 animate-in fade-in zoom-in-95">
+                    {FONT_OPTIONS.map((f) => {
+                      const isSelected = currentFontFamily === f.id;
+                      return (
+                        <button
+                          key={f.id}
+                          type="button"
+                          className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs transition-colors cursor-pointer text-left ${
+                            isSelected
+                              ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 font-bold border border-emerald-500/40'
+                              : 'hover:bg-black/5 dark:hover:bg-white/5 opacity-80 hover:opacity-100'
+                          }`}
+                          onClick={() => {
+                            handleFontFamilyChange(f.id);
+                            setShowFontMenu(false);
+                          }}
                         >
-                          A-
-                        </Button>
-                        <span className="text-xs font-semibold">{currentFontSize}px</span>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="size-7 text-xs font-bold hover:bg-black/10 dark:hover:bg-white/10"
-                          onClick={() => handleFontSizeChange(2)}
-                        >
-                          A+
-                        </Button>
-                      </div>
-                    </div>
-
-                    <div className="relative" ref={fontMenuRef}>
-                      <div className="text-[11px] font-bold uppercase tracking-wider opacity-60 mb-1.5">
-                        Font Style
-                      </div>
-                      <button
-                        type="button"
-                        className={`w-full h-8 px-2.5 reader-pill-theme border rounded-lg text-xs font-medium flex items-center justify-between transition-colors hover:border-emerald-500/50 cursor-pointer ${
-                          showFontMenu ? 'border-emerald-500 text-emerald-500' : ''
-                        }`}
-                        onClick={() => setShowFontMenu(!showFontMenu)}
-                        title="Select Reading Font Style"
-                      >
-                        <div className="flex items-center gap-1.5">
-                          <span className={`font-semibold ${selectedFontObj.fontClass}`}>{selectedFontObj.name}</span>
-                          <span className="text-[10px] opacity-60 font-normal">({selectedFontObj.desc})</span>
-                        </div>
-                        <ChevronDown className={`size-3 opacity-60 transition-transform duration-200 shrink-0 ${showFontMenu ? 'rotate-180' : ''}`} />
-                      </button>
-
-                      {showFontMenu && (
-                        <div className="absolute left-0 right-0 top-full mt-1.5 reader-popover-theme border rounded-xl z-50 p-1 flex flex-col gap-0.5 animate-in fade-in zoom-in-95">
-                          {FONT_OPTIONS.map((f) => {
-                            const isSelected = currentFontFamily === f.id;
-                            return (
-                              <button
-                                key={f.id}
-                                type="button"
-                                className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs transition-colors cursor-pointer text-left ${
-                                  isSelected
-                                    ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 font-bold border border-emerald-500/40'
-                                    : 'hover:bg-black/5 dark:hover:bg-white/5 opacity-80 hover:opacity-100'
-                                }`}
-                                onClick={() => {
-                                  handleFontFamilyChange(f.id);
-                                  setShowFontMenu(false);
-                                }}
-                              >
-                                <div className="flex items-center gap-2">
-                                  <span className={`font-medium ${f.fontClass}`}>{f.name}</span>
-                                  <span className="text-[10px] opacity-60">({f.desc})</span>
-                                </div>
-                                {isSelected && <Check className="size-3.5 text-emerald-500 shrink-0" />}
-                              </button>
-                            );
-                          })}
-                        </div>
-                      )}
-                    </div>
+                          <div className="flex items-center gap-2">
+                            <span className={`font-medium ${f.fontClass}`}>{f.name}</span>
+                            <span className="text-[10px] opacity-60">({f.desc})</span>
+                          </div>
+                          {isSelected && <Check className="size-3.5 text-emerald-500 shrink-0" />}
+                        </button>
+                      );
+                    })}
                   </div>
                 )}
+              </div>
+
+              {/* Font Size Cluster: [A-] 18px [A+] */}
+              <div
+                className="flex items-center reader-pill-theme border rounded-lg h-9 p-0.5 select-none"
+                title="Reading Font Size"
+              >
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="size-7 opacity-75 hover:opacity-100 p-0 rounded-md hover:bg-black/10 dark:hover:bg-white/10 shrink-0 font-bold text-xs"
+                  onClick={() => handleFontSizeChange(-2)}
+                  title="Decrease font size (-2px)"
+                >
+                  A-
+                </Button>
+                <span className="w-8 text-center text-xs font-mono font-bold tabular-nums text-emerald-500">
+                  {currentFontSize}
+                </span>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="size-7 opacity-75 hover:opacity-100 p-0 rounded-md hover:bg-black/10 dark:hover:bg-white/10 shrink-0 font-bold text-xs"
+                  onClick={() => handleFontSizeChange(2)}
+                  title="Increase font size (+2px)"
+                >
+                  A+
+                </Button>
               </div>
 
               {/* Custom Voice Selector Dropdown */}
@@ -1024,7 +1035,7 @@ export function App() {
               className={`border-2 border-dashed transition-all cursor-pointer shadow-xs ${
                 isDragging
                   ? 'border-emerald-500 bg-emerald-50 dark:bg-emerald-950/20 ring-2 ring-emerald-500/30'
-                  : 'border-slate-300 dark:border-slate-800 bg-white/80 dark:bg-slate-900/60 hover:border-emerald-500/50 hover:bg-slate-50/80 dark:hover:border-slate-700 dark:hover:bg-slate-900/90'
+                  : 'border-slate-300 dark:border-slate-800 bg-white/90 dark:bg-slate-900/60 hover:border-emerald-500/50 hover:bg-slate-50/80 dark:hover:border-slate-700 dark:hover:bg-slate-900/90 ring-0'
               }`}
               onClick={() => homeFileInputRef.current?.click()}
             >
@@ -1089,7 +1100,7 @@ export function App() {
                     return (
                       <Card
                         key={doc.id}
-                        className="group border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/60 hover:border-emerald-500/50 hover:bg-slate-50/80 dark:hover:bg-slate-900/90 hover:shadow-sm transition-all cursor-pointer flex flex-col justify-between"
+                        className="group border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/60 hover:border-emerald-500/50 hover:bg-slate-50/80 dark:hover:bg-slate-900/90 hover:shadow-sm transition-all cursor-pointer flex flex-col justify-between ring-0"
                         onClick={() => handleOpenStored(doc)}
                       >
                         <CardHeader className="pb-3">
@@ -1133,7 +1144,7 @@ export function App() {
                 </div>
               ) : (
                 /* Empty Recents State */
-                <Card className="border-slate-200 dark:border-slate-800 bg-white/70 dark:bg-slate-900/40 text-center py-12">
+                <Card className="border-slate-200 dark:border-slate-800 bg-white/70 dark:bg-slate-900/40 text-center py-12 ring-0">
                   <CardContent className="flex flex-col items-center gap-3">
                     <div className="size-12 rounded-full bg-slate-100 dark:bg-slate-800/80 flex items-center justify-center text-slate-400">
                       <BookOpen className="size-6" />
@@ -1202,10 +1213,10 @@ export function App() {
             {/* Loading Indicator */}
             <div
               id="loading-indicator"
-              className="absolute inset-0 z-50 bg-black/60 backdrop-blur-sm hidden flex-col items-center justify-center gap-3"
+              className="absolute inset-0 z-50 bg-background/85 backdrop-blur-md hidden flex-col items-center justify-center gap-3 transition-opacity duration-200"
             >
-              <div className="size-8 rounded-full border-2 border-emerald-500 border-t-transparent animate-spin" />
-              <p id="loading-text" className="text-xs font-semibold">
+              <div className="size-9 rounded-full border-2 border-emerald-500/25 border-t-emerald-500 animate-spin" />
+              <p id="loading-text" className="text-xs font-semibold text-foreground tracking-wide">
                 Loading document...
               </p>
             </div>
@@ -1366,6 +1377,43 @@ export function App() {
                 Configure API Key
               </AlertDialogAction>
             )}
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Local File Scheme Access Alert Dialog */}
+      <AlertDialog
+        open={fileSchemeAlertOpen}
+        onOpenChange={setFileSchemeAlertOpen}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2.5 text-emerald-600 dark:text-emerald-400">
+              <FileText className="size-5 shrink-0" />
+              <span>Permission Needed for Local Files</span>
+            </AlertDialogTitle>
+            <AlertDialogDescription className="space-y-2 text-xs leading-relaxed text-slate-600 dark:text-slate-300">
+              <span>
+                To import local files from your browser (<code>file:///...</code>), Chrome requires the <strong>"Allow access to file URLs"</strong> permission.
+              </span>
+              <div className="rounded-lg bg-slate-100 dark:bg-slate-800/80 p-3 border border-slate-200 dark:border-slate-700 space-y-1 font-mono text-[11px] text-slate-700 dark:text-slate-200">
+                <div>1. Open <strong>chrome://extensions</strong></div>
+                <div>2. Click <strong>Details</strong> on ReadFlow</div>
+                <div>3. Turn ON <strong>"Allow access to file URLs"</strong></div>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setView('home')}>Close</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-emerald-600 hover:bg-emerald-500 text-white"
+              onClick={() => {
+                chrome.tabs.create({ url: `chrome://extensions/?id=${chrome.runtime.id}` });
+              }}
+            >
+              Open Extension Settings
+            </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

@@ -686,6 +686,26 @@ body.light-theme .toggle-site-btn:hover {
   color: #0f172a;
 }
 
+body.light-theme .pdf-btn {
+  color: #047857;
+  font-weight: 600;
+  border-color: rgba(16, 185, 129, 0.4);
+}
+
+body.light-theme .pdf-btn:hover {
+  color: #064e3b;
+  border-color: rgba(16, 185, 129, 0.65);
+}
+
+body.light-theme .update-banner {
+  background: linear-gradient(135deg, rgba(37, 99, 235, 0.12), rgba(30, 58, 138, 0.08));
+  border-color: rgba(59, 130, 246, 0.35);
+}
+
+body.light-theme .update-title {
+  color: #1e3a8a;
+}
+
 body.light-theme .popup-footer {
   border-top-color: rgba(0, 0, 0, 0.08);
   color: #94a3b8;

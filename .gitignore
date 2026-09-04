@@ -24,6 +24,7 @@ native-host/tts-host.bundle.js
 # misc
 .DS_Store
 *.pem
+*.zip
 
 # debug
 npm-debug.log*
