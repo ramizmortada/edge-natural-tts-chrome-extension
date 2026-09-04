@@ -4,8 +4,15 @@ document.addEventListener('DOMContentLoaded', () => {
   const speedLabel = document.getElementById('speed-label') as HTMLSpanElement;
   const toggleSiteBtn = document.getElementById('toggle-site-btn') as HTMLButtonElement;
 
+  function formatSpeed(ratePercent: number): string {
+    const mult = 1 + ratePercent / 100;
+    const rounded = Math.round(mult * 100) / 100;
+    const str = (Math.abs(rounded * 10 - Math.round(rounded * 10)) < 0.001) ? rounded.toFixed(1) : rounded.toFixed(2);
+    return `${str}x`;
+  }
+
   function updateSpeedLabel(val: number) {
-    speedLabel.textContent = val >= 0 ? `+${val}%` : `${val}%`;
+    speedLabel.textContent = formatSpeed(val);
   }
 
   let currentDomain = '';

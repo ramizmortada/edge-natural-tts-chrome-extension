@@ -86,6 +86,28 @@ const FONT_OPTIONS: FontOption[] = [
   { id: 'mono', name: 'Monospace', desc: 'Code', fontClass: 'font-mono' },
 ];
 
+interface SpeedPreset {
+  rate: number;
+  label: string;
+}
+
+const SPEED_PRESETS: SpeedPreset[] = [
+  { rate: -50, label: '0.5x' },
+  { rate: -25, label: '0.75x' },
+  { rate: 0, label: '1.0x (Normal)' },
+  { rate: 25, label: '1.25x' },
+  { rate: 50, label: '1.5x' },
+  { rate: 75, label: '1.75x' },
+  { rate: 100, label: '2.0x' },
+];
+
+export function formatSpeed(ratePercent: number): string {
+  const mult = 1 + ratePercent / 100;
+  const rounded = Math.round(mult * 100) / 100;
+  const str = (Math.abs(rounded * 10 - Math.round(rounded * 10)) < 0.001) ? rounded.toFixed(1) : rounded.toFixed(2);
+  return `${str}x`;
+}
+
 export function App() {
   const [view, setView] = useState<'home' | 'reader'>('home');
   const [recents, setRecents] = useState<StoredDoc[]>([]);
@@ -118,6 +140,7 @@ export function App() {
 
   const [showVoiceMenu, setShowVoiceMenu] = useState<boolean>(false);
   const [showFontMenu, setShowFontMenu] = useState<boolean>(false);
+  const [showSpeedMenu, setShowSpeedMenu] = useState<boolean>(false);
   const selectedVoiceObj = VOICES.find((v) => v.id === voice) || VOICES[0];
   const selectedFontObj = FONT_OPTIONS.find((f) => f.id === currentFontFamily) || FONT_OPTIONS[0];
 
@@ -126,6 +149,7 @@ export function App() {
   const appearanceRef = useRef<HTMLDivElement>(null);
   const voiceMenuRef = useRef<HTMLDivElement>(null);
   const fontMenuRef = useRef<HTMLDivElement>(null);
+  const speedMenuRef = useRef<HTMLDivElement>(null);
 
   // Close appearance dropdown on outside click
   useEffect(() => {
@@ -171,6 +195,21 @@ export function App() {
       };
     }
   }, [showFontMenu]);
+
+  // Close speed dropdown on outside click
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (speedMenuRef.current && !speedMenuRef.current.contains(event.target as Node)) {
+        setShowSpeedMenu(false);
+      }
+    }
+    if (showSpeedMenu) {
+      document.addEventListener('mousedown', handleClickOutside, true);
+      return () => {
+        document.removeEventListener('mousedown', handleClickOutside, true);
+      };
+    }
+  }, [showSpeedMenu]);
 
   // Load Initial Settings & Recents
   useEffect(() => {
@@ -765,44 +804,77 @@ export function App() {
                 )}
               </div>
 
-              {/* Reading Speed Cluster with - / + Stepper Arrows */}
+              {/* Reading Speed Cluster: [-] [ 1.0x ▾ ] [+] with Presets Dropdown */}
               <div
-                className="flex items-center gap-1.5 reader-pill-theme border px-2 py-1 rounded-lg h-9 shadow-inner"
+                ref={speedMenuRef}
+                className="relative flex items-center reader-pill-theme border rounded-lg h-9 shadow-inner p-0.5 select-none"
                 title="Reading Speed"
               >
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="size-6 opacity-75 hover:opacity-100 p-0 rounded hover:bg-black/10 dark:hover:bg-white/10"
+                  className="size-7 opacity-75 hover:opacity-100 p-0 rounded hover:bg-black/10 dark:hover:bg-white/10 shrink-0"
                   onClick={() => stepSpeed(-5)}
-                  title="Decrease speed (-5%)"
+                  title="Decrease speed (-0.05x)"
                 >
                   <Minus className="size-3.5" />
                 </Button>
 
-                <input
-                  type="range"
-                  min="-50"
-                  max="100"
-                  step="5"
-                  value={rate}
-                  onChange={(e) => handleRateChange(parseInt(e.target.value, 10))}
-                  className="w-14 accent-emerald-500 cursor-pointer h-1.5"
-                />
+                {/* Stable, Fixed-Width Speed Selector Button */}
+                <button
+                  type="button"
+                  onClick={() => setShowSpeedMenu(!showSpeedMenu)}
+                  className={`h-7 w-[64px] px-1 mx-0.5 rounded-md flex items-center justify-center gap-1 text-xs font-mono font-bold tabular-nums transition-colors cursor-pointer border ${
+                    showSpeedMenu
+                      ? 'border-emerald-500 text-emerald-500 bg-emerald-500/10'
+                      : 'border-transparent text-emerald-500 hover:bg-black/10 dark:hover:bg-white/10'
+                  }`}
+                  title="Select Speed Preset"
+                >
+                  <span>{formatSpeed(rate)}</span>
+                  <ChevronDown className={`size-2.5 opacity-60 transition-transform duration-200 shrink-0 ${showSpeedMenu ? 'rotate-180' : ''}`} />
+                </button>
 
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="size-6 opacity-75 hover:opacity-100 p-0 rounded hover:bg-black/10 dark:hover:bg-white/10"
+                  className="size-7 opacity-75 hover:opacity-100 p-0 rounded hover:bg-black/10 dark:hover:bg-white/10 shrink-0"
                   onClick={() => stepSpeed(5)}
-                  title="Increase speed (+5%)"
+                  title="Increase speed (+0.05x)"
                 >
                   <Plus className="size-3.5" />
                 </Button>
 
-                <Badge variant="secondary" className="font-mono text-[11px] px-1.5 py-0 h-5 reader-pill-theme border text-emerald-500 font-bold">
-                  {rate >= 0 ? `+${rate}%` : `${rate}%`}
-                </Badge>
+                {/* Speed Presets Dropdown Menu */}
+                {showSpeedMenu && (
+                  <div className="absolute left-1/2 -translate-x-1/2 top-full mt-2 w-44 p-1.5 reader-popover-theme border rounded-xl shadow-2xl z-50 flex flex-col gap-0.5 animate-in fade-in zoom-in-95">
+                    <div className="px-2 py-1 text-[10px] font-bold uppercase tracking-wider opacity-60 border-b border-current/10 mb-0.5 flex items-center justify-between">
+                      <span>Speed Presets</span>
+                      <span className="text-[9px] font-mono opacity-75">&plusmn;0.05x</span>
+                    </div>
+                    {SPEED_PRESETS.map((p) => {
+                      const isSelected = rate === p.rate;
+                      return (
+                        <button
+                          key={p.rate}
+                          type="button"
+                          className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs transition-colors cursor-pointer font-medium ${
+                            isSelected
+                              ? 'bg-emerald-600/15 text-emerald-500 font-bold border border-emerald-500/30'
+                              : 'hover:bg-black/5 dark:hover:bg-white/5 opacity-85 hover:opacity-100'
+                          }`}
+                          onClick={() => {
+                            handleRateChange(p.rate);
+                            setShowSpeedMenu(false);
+                          }}
+                        >
+                          <span className="font-mono tabular-nums">{p.label}</span>
+                          {isSelected && <Check className="size-3.5 text-emerald-500 shrink-0" />}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
 
               {/* Action Buttons: Auto-scroll & AI */}

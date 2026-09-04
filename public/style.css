@@ -80,11 +80,15 @@ label {
 .speed-badge {
   font-size: 12px;
   font-family: monospace;
-  color: #d4d4d8;
-  background-color: rgba(0, 0, 0, 0.3);
+  font-variant-numeric: tabular-nums;
+  color: #10b981;
+  background-color: rgba(16, 185, 129, 0.1);
   padding: 2px 8px;
   border-radius: 9999px;
-  border: 1px solid rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(16, 185, 129, 0.25);
+  min-width: 48px;
+  text-align: center;
+  display: inline-block;
 }
 
 select {
@@ -354,9 +358,9 @@ body.light-theme label {
 }
 
 body.light-theme .speed-badge {
-  background-color: #f1f5f9;
-  border-color: #e2e8f0;
-  color: #334155;
+  background-color: rgba(16, 185, 129, 0.1);
+  border-color: rgba(16, 185, 129, 0.25);
+  color: #059669;
 }
 
 body.light-theme select {
