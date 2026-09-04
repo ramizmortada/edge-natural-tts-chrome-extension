@@ -106,5 +106,14 @@ fs.copyFileSync('native-host/install.bat', 'out/native-host/install.bat');
 fs.copyFileSync('native-host/install.js', 'out/native-host/install.js');
 fs.copyFileSync('native-host/com.edgetts.host.json', 'out/native-host/com.edgetts.host.json');
 
+if (fs.existsSync('update.bat')) {
+  console.log('Packaging update.bat into out/update.bat...');
+  fs.copyFileSync('update.bat', 'out/update.bat');
+}
+if (fs.existsSync('update.ps1')) {
+  console.log('Packaging update.ps1 into out/update.ps1...');
+  fs.copyFileSync('update.ps1', 'out/update.ps1');
+}
+
 console.log("Build complete!");
 

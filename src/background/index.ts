@@ -19,6 +19,99 @@ async function setupOffscreenDocument() {
 
 let activeClientPort: chrome.runtime.Port | null = null;
 
+// --- Update Checker ---
+const GITHUB_REPO = "ramizmortada/readflow";
+const CHECK_INTERVAL_MINUTES = 720; // 12 hours
+
+function isNewerVersion(remote: string, current: string): boolean {
+  const cleanRemote = remote.replace(/^v/, '').trim();
+  const cleanCurrent = current.replace(/^v/, '').trim();
+
+  const rParts = cleanRemote.split('.').map(n => parseInt(n, 10) || 0);
+  const cParts = cleanCurrent.split('.').map(n => parseInt(n, 10) || 0);
+
+  for (let i = 0; i < Math.max(rParts.length, cParts.length); i++) {
+    const r = rParts[i] || 0;
+    const c = cParts[i] || 0;
+    if (r > c) return true;
+    if (r < c) return false;
+  }
+  return false;
+}
+
+async function checkForUpdates(force = false): Promise<any> {
+  try {
+    const currentVersion = chrome.runtime.getManifest().version;
+    const stored = await chrome.storage.local.get(["lastUpdateCheck", "updateInfo", "dismissedVersion"]);
+    const now = Date.now();
+
+    // Cooldown unless forced: 1 hour minimum
+    if (!force && stored.lastUpdateCheck && (now - stored.lastUpdateCheck < 60 * 60 * 1000)) {
+      if (stored.updateInfo) {
+        return stored.updateInfo;
+      }
+    }
+
+    const res = await fetch(`https://api.github.com/repos/${GITHUB_REPO}/releases/latest`, {
+      headers: {
+        'Accept': 'application/vnd.github.v3+json'
+      }
+    });
+
+    if (!res.ok) {
+      return stored.updateInfo || { hasUpdate: false, currentVersion };
+    }
+
+    const data = await res.json();
+    const latestTag = data.tag_name || "";
+    const hasUpdate = isNewerVersion(latestTag, currentVersion);
+    const releaseUrl = data.html_url || `https://github.com/${GITHUB_REPO}/releases/latest`;
+    const releaseNotes = data.body || "";
+
+    const updateInfo = {
+      hasUpdate,
+      latestVersion: latestTag.replace(/^v/, ''),
+      currentVersion,
+      releaseUrl,
+      releaseNotes,
+      checkedAt: now
+    };
+
+    await chrome.storage.local.set({
+      lastUpdateCheck: now,
+      updateInfo
+    });
+
+    if (hasUpdate && stored.dismissedVersion !== updateInfo.latestVersion) {
+      await chrome.action.setBadgeText({ text: "NEW" });
+      await chrome.action.setBadgeBackgroundColor({ color: "#2563eb" });
+    } else if (!hasUpdate) {
+      await chrome.action.setBadgeText({ text: "" });
+    }
+
+    return updateInfo;
+  } catch (err) {
+    console.warn("ReadFlow: Update check failed:", err);
+    return { hasUpdate: false };
+  }
+}
+
+// Alarms & Startup update checks
+chrome.alarms.create("CHECK_UPDATES_ALARM", { periodInMinutes: CHECK_INTERVAL_MINUTES });
+chrome.alarms.onAlarm.addListener((alarm) => {
+  if (alarm.name === "CHECK_UPDATES_ALARM") {
+    checkForUpdates();
+  }
+});
+
+chrome.runtime.onInstalled.addListener(() => {
+  checkForUpdates();
+});
+
+chrome.runtime.onStartup.addListener(() => {
+  checkForUpdates();
+});
+
 chrome.runtime.onMessage.addListener((msg: any, sender: chrome.runtime.MessageSender, sendResponse: (response?: any) => void) => {
   if (msg.type === "PLAYBACK_ENDED" || msg.type === "TIME_UPDATE") {
     if (activeClientPort) {
@@ -27,6 +120,15 @@ chrome.runtime.onMessage.addListener((msg: any, sender: chrome.runtime.MessageSe
       } catch (e) {
       }
     }
+  } else if (msg.type === "CHECK_FOR_UPDATES") {
+    checkForUpdates(!!msg.force).then(sendResponse);
+    return true;
+  } else if (msg.type === "DISMISS_UPDATE") {
+    chrome.storage.local.set({ dismissedVersion: msg.version }).then(() => {
+      chrome.action.setBadgeText({ text: "" });
+      sendResponse({ success: true });
+    });
+    return true;
   }
 });
 

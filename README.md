@@ -50,6 +50,19 @@ A Chromium browser extension that reads webpages and documents aloud using natur
 4. Enable **Developer mode** (top-right toggle).
 5. Click **Load unpacked** and select the extracted ReadFlow folder.
 
+### Updating ReadFlow
+When a new release is available, the extension will display a **NEW** badge in your browser toolbar and a notification inside the popup.
+
+- **Option A (1-Click Update):**
+  1. Open your ReadFlow folder.
+  2. Double-click **`update.bat`**. It automatically checks GitHub, downloads the latest release, extracts files, and keeps your audio host configured.
+  3. Go to `chrome://extensions/` (or `edge://extensions/`) and click the circular **Reload (🔄)** button on the ReadFlow card.
+
+- **Option B (Manual Update):**
+  1. Download the latest **`readflow.zip`** from [Releases](https://github.com/ramizmortada/readflow/releases).
+  2. Extract it over your existing ReadFlow folder (overwrite files).
+  3. Go to `chrome://extensions/` and click the **Reload (🔄)** button.
+
 ---
 
 ### For Developers (Building from Source)

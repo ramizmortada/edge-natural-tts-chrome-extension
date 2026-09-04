@@ -16,6 +16,47 @@
     </div>
   </div>
 
+  <div id="update-banner" class="update-banner" style="display: none;">
+    <div class="update-banner-header">
+      <div class="update-title-wrap">
+        <span class="update-icon">🚀</span>
+        <span class="update-title">Update Available</span>
+        <span id="update-version-badge" class="update-version-badge">v0.0.0</span>
+      </div>
+      <button id="dismiss-update-btn" class="update-dismiss-btn" title="Dismiss" aria-label="Dismiss">✕</button>
+    </div>
+    <div class="update-banner-actions">
+      <a id="download-update-link" href="#" target="_blank" class="update-action-btn primary">
+        <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        <span>GitHub Release</span>
+      </a>
+      <button id="toggle-update-guide-btn" class="update-action-btn secondary">
+        <span>How to Update</span>
+        <svg id="update-guide-arrow" xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+      </button>
+    </div>
+    <div id="update-guide-panel" class="update-guide-panel" style="display: none;">
+      <div class="update-step">
+        <span class="step-num">1</span>
+        <div class="step-content">
+          <strong>1-Click (Easiest):</strong> Run <code>update.bat</code> inside your ReadFlow folder. It downloads and updates automatically!
+        </div>
+      </div>
+      <div class="update-step">
+        <span class="step-num">2</span>
+        <div class="step-content">
+          <strong>Or Manual:</strong> Download <code>readflow.zip</code> from GitHub, unzip over your ReadFlow folder.
+        </div>
+      </div>
+      <div class="update-step">
+        <span class="step-num">3</span>
+        <div class="step-content">
+          Open <code>chrome://extensions</code> and click the circular 🔄 <strong>Reload</strong> button on ReadFlow.
+        </div>
+      </div>
+    </div>
+  </div>
+
   <p class="description">
     Hover over text on any webpage. Click the Play icon that appears.
   </p>
@@ -57,6 +98,10 @@
       </button>
     </div>
 
+  <div class="popup-footer">
+    <span id="current-version-label" class="footer-version">v1.0.4</span>
+    <button id="check-updates-btn" class="footer-check-btn" title="Check GitHub for updates">Check for updates</button>
+  </div>
 
   <script src="popup.js"></script>
 </body>
